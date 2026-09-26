@@ -7,6 +7,8 @@ module memmap_prom_tb;
 	logic        cpu_read;
 	logic [7:0] environment, zero_page, bank_register, extended_bank;
 	logic native_mode, extended_active, ram_128k;
+	logic dma_cycle = 0;
+	wire dma_read_allowed, dma_write_allowed;
 	wire [15:0] bus_addr;
 	wire [18:0] ram_byte_addr;
 	wire [17:0] ram_word_addr;

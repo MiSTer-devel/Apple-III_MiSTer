@@ -56,6 +56,10 @@ module core_timing_tb;
 		.slot_io_strobe,
 		.slot_rom_deselect,
 		.slot_bus_conflict,
+		.slot_dma_ok        (),
+		.slot_dma_req       (4'b0000),
+		.slot_dma_write     (4'b0000),
+		.slot_dma_data      (),
 		.serial_rx          (1'b1),
 		.serial_cts_n       (1'b0),
 		.serial_dsr_n       (1'b0),
@@ -198,8 +202,9 @@ module core_timing_tb;
 		reset      = 0;
 		slot_ready = 4'hf;
 		wait (cpu_addr == 16'hfffc && cpu_enable);
-		$display("PASS T65 peripheral alignment (%0d VIA, %0d ACIA accesses), four RDY inputs, RMW writes, stalled NMI and reset",
-				 via_accesses, acia_accesses);
+		$display(
+			"PASS T65 peripheral alignment (%0d VIA, %0d ACIA accesses), four RDY inputs, RMW writes, stalled NMI and reset",
+			via_accesses, acia_accesses);
 		$finish;
 	end
 endmodule

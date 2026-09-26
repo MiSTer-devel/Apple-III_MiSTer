@@ -40,7 +40,7 @@ module rtc_accuracy_tb;
 	endtask
 	initial begin
 		repeat (3) @(negedge clk);
-		reset = 0;
+		reset    = 0;
 		// Host seed: Thursday 2026-09-17 23:58:07. SOS reads the year back from the
 		// day and month latches as ((month << 2) | 3) & day (SOS 1.3 GET.TIME).
 		host_rtc = {1'b1, 8'h40, 8'h04, 8'h26, 8'h09, 8'h17, 8'h23, 8'h58, 8'h07};

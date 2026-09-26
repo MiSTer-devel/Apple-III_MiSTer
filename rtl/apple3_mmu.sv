@@ -10,6 +10,13 @@
 // Jeppson's "III BITS" and the July 1981 "Funny Mode" memo describe the same
 // map; MAME is a compatibility cross-check, not the specification.
 //
+// A pseudo-DMA cycle (dma_cycle) is a CPU fetch from the ROM's $F800 block
+// that a card has claimed through DMAI.  The CPU still reads its ROM byte;
+// the RAM side of the cycle goes to the zero page instead, so the card's byte
+// lands where a zero-page access to the same low address would, in the page
+// the zero-page register names and the bank the bank register selects.
+// That is the transfer Apple's ProFile driver sets up (docs/PROFILE.md).
+//
 // RAM_BANKS is 8 for Apple's boards, where ram_128k selects the 128 KiB board
 // at run time, or 16 for a third-party 512 KiB upgrade, which Apple's PROMs do
 // not cover.  The system bank is always the last one in the FPGA's RAM.
@@ -28,6 +35,7 @@ module apple3_mmu #(
 	input logic        extended_active,
 	input logic [ 7:0] extended_bank,
 	input logic        ram_128k,
+	input logic        dma_cycle,
 
 	output logic [15:0] bus_addr,
 	output logic [18:0] ram_byte_addr,
@@ -36,6 +44,8 @@ module apple3_mmu #(
 	output logic        ram_select,
 	output logic        ram_read,
 	output logic        ram_write_allowed,
+	output logic        dma_read_allowed,
+	output logic        dma_write_allowed,
 	output logic        rom_read,
 	output logic [12:0] rom_addr,
 	output logic        io_select,
@@ -62,6 +72,7 @@ module apple3_mmu #(
 	logic        special_map;
 	logic        window;
 	logic        present;
+	logic [15:0] ram_addr;
 	logic        c_fxxx;
 	logic        ff_page;
 	logic        ffcx;
@@ -70,6 +81,13 @@ module apple3_mmu #(
 	logic        io_space;
 	logic        fspace;
 	logic        ramen;
+	logic        dma_c_fxxx;
+	logic        dma_ff_page;
+	logic        dma_cxxx;
+	logic        dma_io_space;
+	logic        dma_fspace;
+	logic        dma_rom;
+	logic        dma_ramen;
 	logic [18:0] translated_addr;
 
 	always_comb begin
@@ -80,12 +98,14 @@ module apple3_mmu #(
 		zero_page_select = (cpu_addr[15:9] == 7'd0) &&
 						   (!cpu_addr[8] || (!environment[2] && !(extended_active && extended_bank[7])));
 		bus_addr = zero_page_select ? {zero_page ^ {7'd0, cpu_addr[8]}, cpu_addr[7:0]} : cpu_addr;
+		// The RAM side of a pseudo-DMA cycle takes the zero page's address.
+		ram_addr = dma_cycle ? {zero_page, cpu_addr[7:0]} : bus_addr;
 
 		// 342-0043: -IND = /PA8*/-ZPAGE + /ABK4.
 		indirect      = extended_active && extended_bank[7] && (cpu_addr[15:8] != 8'h00);
 		extended_pair = extended_bank[3:0] & BANK_MASK;
 		special_map   = indirect && (extended_pair == BANK_MASK);
-		linear_bank   = {1'b0, extended_pair} + {4'b0000, bus_addr[15]};
+		linear_bank   = {1'b0, extended_pair} + {4'b0000, ram_addr[15]};
 
 		// Apple's boards: banks 0-2 or 0-6, then the system bank.  Bank
 		// register 7 reaches bank 2 on the 256 KiB board and bank 0 on the
@@ -93,16 +113,16 @@ module apple3_mmu #(
 		// pair on either, strobe no CAS at all.
 		top_bank    = !STOCK ? 4'd14 : ram_128k ? 4'd2 : 4'd6;
 		window_bank = bank_register[3:0] & BANK_MASK;
-		window      = (bus_addr >= 16'h2000) && (bus_addr < 16'ha000);
+		window      = (ram_addr >= 16'h2000) && (ram_addr < 16'ha000);
 		present     = 1'b1;
 
 		if (indirect && !special_map) begin
 			// X=$80+n supplies the high 32-K bank number.  A15 selects n/n+1.
 			mapped_bank = linear_bank[3:0] & BANK_MASK;
-			bank_offset = bus_addr[14:0];
+			bank_offset = ram_addr[14:0];
 			present     = !STOCK || (linear_bank <= {1'b0, top_bank});
 		end else if (window) begin
-			bank_offset = bus_addr[14:0] - 15'h2000;
+			bank_offset = ram_addr[14:0] - 15'h2000;
 			if (special_map) mapped_bank = 4'd0;
 			else if (window_bank == SYSTEM_BANK) mapped_bank = (STOCK && ram_128k) ? 4'd0 : 4'd2;
 			else begin
@@ -111,7 +131,7 @@ module apple3_mmu #(
 			end
 		end else begin
 			mapped_bank = SYSTEM_BANK;
-			bank_offset = bus_addr[14:0];
+			bank_offset = ram_addr[14:0];
 		end
 
 		translated_addr = {mapped_bank, bank_offset};
@@ -150,6 +170,20 @@ module apple3_mmu #(
 		ram_select        = ramen;
 		ram_read          = ramen && cpu_read && present;
 		ram_write_allowed = ramen && !cpu_read && present && !(environment[3] && c_fxxx);
+
+		// The same decode for the zero page a pseudo-DMA cycle reaches: the
+		// byte goes to RAM where a zero-page access would, and nowhere else.
+		dma_c_fxxx = (ram_addr[15:14] == 2'b11);
+		dma_ff_page = dma_c_fxxx && (&ram_addr[13:6]) && native_mode;
+		dma_cxxx = dma_c_fxxx && environment[6] && (ram_addr[13:12] == 2'b00);
+		dma_io_space = dma_cxxx && !(!ram_addr[11] && (ram_addr[10:8] >= 3'd5));
+		dma_fspace   = (dma_ff_page && (ram_addr[5:4] != 2'b11) && (ram_addr[5:4] != 2'b00)) ||
+					   (dma_io_space && (ram_addr[11:8] == 4'h0) && ((ram_addr[7:4] == 4'hf) || (ram_addr[7:4] == 4'h7)));
+		dma_rom      = dma_c_fxxx && (ram_addr[13:12] == 2'b11) && native_mode && environment[0] &&
+					   !(dma_ff_page && (ram_addr[5:4] == 2'b00)) && !dma_fspace;
+		dma_ramen = !dma_rom && !dma_fspace && !dma_io_space;
+		dma_read_allowed = dma_cycle && dma_ramen && present;
+		dma_write_allowed = dma_read_allowed && !(environment[3] && dma_c_fxxx);
 	end
 
 endmodule

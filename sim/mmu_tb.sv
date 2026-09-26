@@ -5,6 +5,8 @@ module mmu_tb;
 	logic        cpu_read;
 	logic [7:0] environment, zero_page, bank_register, extended_bank;
 	logic native_mode, extended_active, ram_128k;
+	logic dma_cycle = 0;
+	wire dma_read_allowed, dma_write_allowed;
 	wire [15:0] bus_addr;
 	wire [18:0] ram_byte_addr;
 	wire [17:0] ram_word_addr;
@@ -31,6 +33,7 @@ module mmu_tb;
 		.extended_active,
 		.extended_bank,
 		.ram_128k,
+		.dma_cycle        (1'b0),
 		.bus_addr         (),
 		.ram_byte_addr    (stock_addr),
 		.ram_word_addr    (),
@@ -38,6 +41,8 @@ module mmu_tb;
 		.ram_select       (),
 		.ram_read         (stock_read),
 		.ram_write_allowed(stock_write),
+		.dma_read_allowed (),
+		.dma_write_allowed(),
 		.rom_read         (),
 		.rom_addr         (),
 		.io_select        (),

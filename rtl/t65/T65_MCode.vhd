@@ -822,11 +822,12 @@ begin
             PCAdd   <= '1';  -- This tells the PC adder to update itself with
                              -- the current offset recently fetched from
                              -- memory.
-                -- The following is microcycle T3 :
-                -- The program counter should be completely updated
-                -- on this cycle after the page cross is detected.
-                -- We don't need to do anything here...
+                -- The following is microcycle T3, reached only when
+                -- the branch crosses a page: the bus shows the old page
+                -- with the new low byte, and the high byte is fixed at
+                -- its end (Jump "11" without PCAdd).
           when Cycle_3 =>
+            Jump    <= "11";
           when others => null; -- Do nothing.
         end case;
 

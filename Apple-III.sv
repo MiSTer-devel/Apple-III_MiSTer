@@ -35,7 +35,7 @@ module emu (
 	// 0         1         2         3          4         5         6
 	// 01234567890123456789012345678901 23456789012345678901234567890123
 	// 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-	// X  XXXXXXXXXXXXXXXXXXXXXXXXXXX
+	// X  XXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 	//
 	// Aspect ratio is status[122:121], where the Template keeps it.
 
@@ -54,6 +54,7 @@ module emu (
 		"-;",
 		"S4,PO HDV2MG,Mount Hard Disk 1;",
 		"S5,PO HDV2MG,Mount Hard Disk 2;",
+		"S6,PO HDV2MG,Mount ProFile;",
 		"-;",
 		"O8,Model,Apple ///,/// Plus;",
 		"h0OF,Text Interlace,Off,On;",
@@ -76,6 +77,7 @@ module emu (
 		"h2P2O[22],Deinterlacing,Weave,Bob;",
 		"P3,Hardware;",
 		"P3-;",
+		"P3O[31:30],ProFile Card,Off,Slot 4,Slot 3,Slot 2;",
 		"P3O[23],Mouse Card,On,Off;",
 		"P3O[25:24],Mouse Speed,Normal,Fast,Faster,Fastest;",
 		"P3-;",
@@ -139,18 +141,19 @@ module emu (
 	wire [1:0] video_source = status[14:13];
 	wire       composite_source = (video_source == 2'd1) || (video_source == 2'd2);
 
-	// S0-S3 are the Disk III drives; S4 and S5 are the block card's images.
-	wire [ 5:0] img_mounted;
+	// S0-S3 are the Disk III drives, S4 and S5 the block card's images and
+	// S6 the ProFile's.
+	wire [ 6:0] img_mounted;
 	wire        img_readonly;
 	wire [63:0] img_size;
-	wire [31:0] sd_lba       [6];
-	wire [ 5:0] sd_blk_cnt   [6];
-	wire [ 5:0] sd_rd;
-	wire [ 5:0] sd_wr;
-	wire [ 5:0] sd_ack;
+	wire [31:0] sd_lba       [7];
+	wire [ 5:0] sd_blk_cnt   [7];
+	wire [ 6:0] sd_rd;
+	wire [ 6:0] sd_wr;
+	wire [ 6:0] sd_ack;
 	wire [13:0] sd_buff_addr;
 	wire [ 7:0] sd_buff_dout;
-	wire [ 7:0] sd_buff_din  [6];
+	wire [ 7:0] sd_buff_din  [7];
 	wire        sd_buff_wr;
 
 	wire        ioctl_download;
@@ -166,7 +169,7 @@ module emu (
 	// (Ctrl+F2 = reset, F2 alone = NMI).
 	hps_io #(
 		.CONF_STR(CONF_STR),
-		.VDNUM   (6)
+		.VDNUM   (7)
 	) hps_io_inst (
 		.clk_sys           (clk_14m),
 		.HPS_BUS           (HPS_BUS),
@@ -318,13 +321,17 @@ module emu (
 	// device that SOS reaches through the Problock3 driver or the soshdboot
 	// ROM. Its two drives are the hard-disk images on S4 and S5. Slot 4 holds
 	// the Apple II Mouse Interface card, where SOS's mouse driver is usually
-	// configured to find it. Slots 2 and 3 are empty.
+	// configured to find it. Apple's ProFile Interface card, serving the S6
+	// image, goes in the slot the "ProFile Card" option names: slot 4, where
+	// Apple's software expects it and where it takes the mouse card's place,
+	// or an empty slot for a driver configured to match.
 	/* verilator lint_off UNUSEDSIGNAL */
 	wire [15:0] slot_addr;  // the cards decode the page offset only
-	wire [3:0] slot_device_select, slot_io_select;  // slots 2 and 3 are empty
 	/* verilator lint_on UNUSEDSIGNAL */
+	wire [3:0] slot_device_select, slot_io_select;
 	wire [7:0] slot_data_out;
-	wire slot_cpu_read, slot_cycle, slot_reset;
+	wire slot_cpu_read, slot_cycle, slot_reset, slot_rom_deselect, slot_dma_ok;
+	wire [7:0] slot_dma_data;
 	wire [7:0] block_data;
 	wire block_oe, block_ready, block_activity;
 	wire [31:0] block_lba;
@@ -367,12 +374,55 @@ module emu (
 	assign sd_buff_din[4] = block_din;
 	assign sd_buff_din[5] = block_din;
 
-	// Like any card, the mouse card goes in or comes out with the machine
-	// off: the "Mouse Card" option takes effect at the next reset.
+	// Like any card, the ProFile and mouse cards go in or come out with the
+	// machine off: their options take effect at the next reset.
+	logic [1:0] profile_choice = 2'd0;  // 0 none, 1 slot 4, 2 slot 3, 3 slot 2
+	logic       mouse_installed = 1'b0;
+	always_ff @(posedge clk_14m) begin
+		if (slot_reset) begin
+			profile_choice  <= status[31:30];
+			mouse_installed <= !status[23] && (status[31:30] != 2'd1);
+		end
+	end
+	wire [3:0] profile_slot = (profile_choice == 2'd1) ? 4'b1000 :
+							  (profile_choice == 2'd2) ? 4'b0100 :
+							  (profile_choice == 2'd3) ? 4'b0010 : 4'b0000;
+	wire [7:0] profile_data;
+	wire profile_oe, profile_activity, profile_dma_req, profile_dma_write;
+
+	apple3_profile_card profile_card (
+		.clk           (clk_14m),
+		.reset         (slot_reset || (profile_choice == 2'd0)),
+		.cycle         (slot_cycle),
+		.addr          (slot_addr[3:0]),
+		.cpu_read      (slot_cpu_read),
+		.data_in       (slot_data_out),
+		.device_select (|(slot_device_select & profile_slot)),
+		.io_select     (|(slot_io_select & profile_slot)),
+		.rom_deselect  (slot_rom_deselect),
+		.data_out      (profile_data),
+		.data_oe       (profile_oe),
+		.activity      (profile_activity),
+		.dma_ok        (slot_dma_ok),
+		.dma_data      (slot_dma_data),
+		.dma_req       (profile_dma_req),
+		.dma_write     (profile_dma_write),
+		.image_change  (img_mounted[6]),
+		.image_size    (img_size),
+		.image_readonly(img_readonly),
+		.sd_lba        (sd_lba[6]),
+		.sd_rd         (sd_rd[6]),
+		.sd_wr         (sd_wr[6]),
+		.sd_ack        (sd_ack[6]),
+		.sd_buff_addr  (sd_buff_addr[8:0]),
+		.sd_buff_dout,
+		.sd_buff_din   (sd_buff_din[6]),
+		.sd_buff_wr
+	);
+	assign sd_blk_cnt[6] = 6'd0;
+
 	wire [7:0] mouse_data;
 	wire mouse_oe, mouse_irq_n;
-	logic mouse_installed = 1'b0;
-	always_ff @(posedge clk_14m) if (slot_reset) mouse_installed <= !status[23];
 
 	apple3_mouse_card mouse_card (
 		.clk          (clk_14m),
@@ -426,9 +476,9 @@ module emu (
 		.joy_a_switch      (stick_switch[!port_b]),
 		.joy_b_button      (stick_button[port_b]),
 		.joy_b_switch      (stick_switch[port_b]),
-		.slot_data_in      ({mouse_data, 16'hffff, block_data}),
-		.slot_data_oe      ({mouse_oe, 2'b00, block_oe}),
-		.slot_irq_n        ({mouse_irq_n, 3'b111}),
+		.slot_data_in      ({profile_slot[3] ? profile_data : mouse_data, profile_data, profile_data, block_data}),
+		.slot_data_oe      ({profile_slot[3] ? profile_oe : mouse_oe, profile_slot[2:1] & {2{profile_oe}}, block_oe}),
+		.slot_irq_n        ({profile_slot[3] || mouse_irq_n, 3'b111}),
 		.slot_nmi_n        (4'b1111),
 		.slot_ready        ({3'b111, block_ready}),
 		.slot_addr         (slot_addr),
@@ -439,8 +489,12 @@ module emu (
 		.slot_device_select(slot_device_select),
 		.slot_io_select    (slot_io_select),
 		.slot_io_strobe    (),
-		.slot_rom_deselect (),
+		.slot_rom_deselect (slot_rom_deselect),
 		.slot_bus_conflict (),
+		.slot_dma_ok       (slot_dma_ok),
+		.slot_dma_req      (profile_slot & {4{profile_dma_req}}),
+		.slot_dma_write    (profile_slot & {4{profile_dma_write}}),
+		.slot_dma_data     (slot_dma_data),
 		.rom_we            (rom_write),
 		.rom_host_addr     (ioctl_addr[12:0]),
 		.rom_host_data     (ioctl_dout),
@@ -518,7 +572,7 @@ module emu (
 	// is on, and it changes nothing on the analog output.
 	assign HDMI_BOB_DEINT = status[22];
 
-	assign LED_USER  = disk_activity || block_activity;
+	assign LED_USER  = disk_activity || block_activity || profile_activity;
 	assign AUDIO_L   = core_audio;
 	assign AUDIO_R   = core_audio;
 	assign AUDIO_S   = 1'b1;

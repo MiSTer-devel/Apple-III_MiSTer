@@ -37,6 +37,7 @@ set_global_assignment -name VERILOG_FILE rtl/cards/mouse/jt6805/jt6805_regs.v
 set_global_assignment -name VERILOG_FILE rtl/cards/mouse/jt6805/jt6805.v
 set_global_assignment -name VERILOG_FILE rtl/cards/mouse/jt6805/jtframe_6805mcu.v
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/cards/apple3_mouse_card.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/cards/apple3_profile_card.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/apple3_core.sv
 
 set_global_assignment -name SDC_FILE Apple-III.sdc

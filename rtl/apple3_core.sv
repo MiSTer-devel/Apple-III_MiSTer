@@ -44,6 +44,13 @@ module apple3_core #(
 	output logic             slot_io_strobe,
 	output logic             slot_rom_deselect,
 	output logic             slot_bus_conflict,
+	// Pseudo-DMA (DMAOK, DMAI): during a CPU fetch from the ROM's $F800
+	// block a card may claim the cycle and move one byte between its data
+	// bus and the zero page's RAM; slot_dma_data is the RAM byte it takes.
+	output logic             slot_dma_ok,
+	input  logic [ 3:0]      slot_dma_req,
+	input  logic [ 3:0]      slot_dma_write,
+	output logic [ 7:0]      slot_dma_data,
 
 	input  logic serial_rx,
 	input  logic serial_cts_n,
@@ -138,7 +145,7 @@ module apple3_core #(
 
 	logic [18:0] ram_byte_addr;
 	logic [17:0] ram_word_addr;
-	logic ram_lane, ram_select, ram_read, ram_write_allowed;
+	logic ram_lane, ram_select, ram_read, ram_write_allowed, ram_write;
 	logic [15:0] ram_q;
 	logic [7:0] ram_cpu_data, sister_data;
 	logic [17:0] video_ram_addr;
@@ -149,6 +156,8 @@ module apple3_core #(
 	logic io_select, via_d_select, via_e_select;
 	logic slot_rom_select, slot_data_valid;
 	logic [7:0] slot_read_data;
+	logic dma_cycle, dma_claim, dma_to_ram, dma_read_allowed, dma_write_allowed;
+	logic [7:0] dma_data;
 	logic slot_ca1, slot_ionmi_n;
 	logic       extended_active;
 	logic [7:0] extended_bank;
@@ -203,31 +212,38 @@ module apple3_core #(
 	always_ff @(posedge clk_14m) if (machine_reset) ram_128k_q <= ram_128k;
 	// So does a change of boot ROM, as the chip swap it stands for would.
 	always_ff @(posedge clk_14m) if (machine_reset) soshdboot_q <= soshdboot;
-	assign cpu_irq_n = !(via_d_irq || via_e_irq || acia_irq);
-	assign slot_ionmi_n = &slot_nmi_n;
+	assign cpu_irq_n        = !(via_d_irq || via_e_irq || acia_irq);
+	assign slot_ionmi_n     = &slot_nmi_n;
 	// Sheet 9 H10: the /NMI net is the Reset key, with or without Control, or
 	// a card's IONMI, unless environment bit 4 locks both out. During
 	// Control-Reset the hard reset holds the CPU, whose edge detector waits.
-	assign nmi_asserted = environment[4] && (reset_key || !slot_ionmi_n);
-	assign cpu_nmi_n = !nmi_asserted;
+	assign nmi_asserted     = environment[4] && (reset_key || !slot_ionmi_n);
+	assign cpu_nmi_n        = !nmi_asserted;
 	// J4 + D9 (sheet 5) gate IRQ1-4 with scanner H1. A held request
 	// retriggers the edge-sensitive VIA every four horizontal states.
-	assign slot_ca1 = !((&slot_irq_n) || h_state[1]);
+	assign slot_ca1         = !((&slot_irq_n) || h_state[1]);
 	// Sheet 9: /IORESET is RESET or, through D9 and H9, the /NMI net while
 	// -AIISW selects Apple II mode. Native Reset alone is only an NMI, and
 	// Control-Reset resets the whole machine.
-	assign slot_reset = machine_reset || (!native_mode && nmi_asserted);
-	assign slot_addr = bus_addr;
-	assign slot_data_out = cpu_dout;
-	assign slot_cpu_read = cpu_rwn;
-	assign slot_cycle = cpu_enable && !slot_reset;
-	assign cpu_ready = (&slot_ready) || machine_reset;
+	assign slot_reset       = machine_reset || (!native_mode && nmi_asserted);
+	assign slot_addr        = bus_addr;
+	assign slot_data_out    = cpu_dout;
+	assign slot_cpu_read    = cpu_rwn;
+	assign slot_cycle       = cpu_enable && !slot_reset;
+	assign cpu_ready        = (&slot_ready) || machine_reset;
 	// RDY holds NMOS 6502 reads; writes, including both RMW writes, finish.
 	// Keep clock enables reaching T65 while waiting so it can capture NMI.
-	assign cpu_enable = cpu_clock_enable && (cpu_ready || !cpu_rwn);
-	assign rtc_cycle = io_select && (cpu_addr[7:4] == 4'h7);
-	assign peripheral_cycle = via_d_select || via_e_select ||
-		rtc_cycle || (io_select && (cpu_addr[7:4] == 4'hf));
+	assign cpu_enable       = cpu_clock_enable && (cpu_ready || !cpu_rwn);
+	// DMAOK marks the fetches from the ROM's pseudo-DMA block, $F800-$F8FF
+	// (SRM 17.1: "I/O block transfer ... without DMA hardware on the
+	// peripheral"). A claiming card turns the cycle's RAM half into a zero
+	// page access; the CPU reads its ROM byte as usual.
+	assign slot_dma_ok      = rom_read && (bus_addr[15:8] == 8'hf8);
+	assign dma_cycle        = slot_dma_ok && dma_claim;
+	assign slot_dma_data    = dma_read_allowed ? ram_cpu_data : 8'hff;
+	assign ram_write        = dma_cycle ? (dma_to_ram && dma_write_allowed) : ram_write_allowed;
+	assign rtc_cycle        = io_select && (cpu_addr[7:4] == 4'h7);
+	assign peripheral_cycle = via_d_select || via_e_select || rtc_cycle || (io_select && (cpu_addr[7:4] == 4'hf));
 
 	assign ram_cpu_data = ram_lane ? ram_q[15:8] : ram_q[7:0];
 	assign sister_data  = ram_lane ? ram_q[7:0] : ram_q[15:8];
@@ -271,7 +287,7 @@ module apple3_core #(
 		.euro,
 		.peripheral_cycle,
 		.rtc_cycle,
-		.ram_cycle    (ram_select),
+		.ram_cycle    (ram_select || dma_cycle),
 		.cpu_enable   (cpu_clock_enable),
 		.via_rising,
 		.via_falling,
@@ -304,6 +320,7 @@ module apple3_core #(
 		.extended_active,
 		.extended_bank,
 		.ram_128k     (ram_128k_q),
+		.dma_cycle,
 		.bus_addr,
 		.ram_byte_addr,
 		.ram_word_addr,
@@ -311,6 +328,8 @@ module apple3_core #(
 		.ram_select,
 		.ram_read,
 		.ram_write_allowed,
+		.dma_read_allowed,
+		.dma_write_allowed,
 		.rom_read,
 		.rom_addr,
 		.io_select,
@@ -327,12 +346,17 @@ module apple3_core #(
 		.cpu_read     (cpu_rwn),
 		.card_data    (slot_data_in),
 		.card_data_oe (slot_data_oe),
+		.dma_req      (slot_dma_req),
+		.dma_write    (slot_dma_write),
 		.device_select(slot_device_select),
 		.io_rom_select(slot_io_select),
 		.io_strobe    (slot_io_strobe),
 		.rom_deselect (slot_rom_deselect),
 		.data_out     (slot_read_data),
 		.data_valid   (slot_data_valid),
+		.dma_claim,
+		.dma_to_ram,
+		.dma_data,
 		.bus_conflict (slot_bus_conflict)
 	);
 
@@ -342,8 +366,8 @@ module apple3_core #(
 		.clk       (clk_14m),
 		.cpu_addr  (ram_word_addr),
 		.cpu_lane  (ram_lane),
-		.cpu_we    (cpu_enable && ram_write_allowed),
-		.cpu_din   (cpu_dout),
+		.cpu_we    (cpu_enable && ram_write),
+		.cpu_din   (dma_cycle ? dma_data : cpu_dout),
 		.cpu_q     (ram_q),
 		.video_addr(video_ram_addr),
 		.video_q   (video_ram_q)
@@ -617,6 +641,6 @@ module apple3_core #(
 	assign debug_p             = cpu_regs[31:24];
 	assign debug_sp            = cpu_regs[39:32];
 	assign debug_ram_byte_addr = ram_byte_addr;
-	assign debug_ram_write     = cpu_enable && ram_write_allowed;
+	assign debug_ram_write     = cpu_enable && ram_write;
 
 endmodule

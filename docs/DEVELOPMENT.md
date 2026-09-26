@@ -245,6 +245,7 @@ bash sim/accuracy/run.sh                # documentation-derived checks
 ./sim/joystick/run.sh                   # joystick read methods at every position
 ./sim/timing/run.sh                     # CPU peripheral waits, RDY, RMW and NMI
 ./sim/blockdev/run.sh                   # block card registers, firmware, real-CPU driver calls
+./sim/profile/run.sh                    # ProFile card protocol and real-CPU pseudo-DMA
 ./sim/mouse/run.sh                      # mouse card under SOS's mouse driver sequences
 ./sim/run_core_boot.sh 30000000
 ./sim/blockdev/run_soshdboot.sh         # soshdboot ROM booting a generated hard disk
@@ -258,7 +259,9 @@ image it follows SOS to the interpreter through the real track cache.
 `--drive2=blank.woz`, `--drive3=blank.woz` and `--drive4=blank.woz`
 mount the three external drives on the shared transfer bus, and
 `--hd1=hard.po`/`--hd2=hard.po` mount the block card's images
-([block storage tests](../sim/blockdev/README.md)); `--soshdboot` sets
+([block storage tests](../sim/blockdev/README.md)), `--profile=hard.po`
+mounts a ProFile image with the card in slot 4, or the slot `--profile-slot=N`
+names ([ProFile tests](../sim/profile/README.md)); `--soshdboot` sets
 **Boot ROM** to soshdboot, and `--alpha-lock` turns Alpha Lock on as the
 machine starts. `--frame-out=frame.ppm`
 saves the rendered 560x192 picture at the end of a run, which is what a

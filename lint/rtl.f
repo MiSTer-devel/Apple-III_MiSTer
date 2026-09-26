@@ -52,5 +52,6 @@ rtl/cards/mouse/jt6805/jt6805_regs.v
 rtl/cards/mouse/jt6805/jt6805.v
 rtl/cards/mouse/jt6805/jtframe_6805mcu.v
 rtl/cards/apple3_mouse_card.sv
+rtl/cards/apple3_profile_card.sv
 rtl/apple3_core.sv
 Apple-III.sv

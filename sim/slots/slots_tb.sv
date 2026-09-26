@@ -16,28 +16,31 @@ module slots_tb;
 	integer            checks = 0;
 	always #5 clk = ~clk;
 	apple3_mmu mmu (
-		.cpu_addr       (addr),
+		.cpu_addr         (addr),
 		.cpu_read,
 		.environment,
-		.zero_page      (8'd0),
-		.bank_register  (8'd0),
+		.zero_page        (8'd0),
+		.bank_register    (8'd0),
 		.native_mode,
 		.extended_active,
 		.extended_bank,
-		.ram_128k       (1'b0),
-		.bus_addr       (),
-		.ram_byte_addr  (),
-		.ram_word_addr  (),
-		.ram_lane       (),
+		.ram_128k         (1'b0),
+		.dma_cycle        (1'b0),
+		.bus_addr         (),
+		.ram_byte_addr    (),
+		.ram_word_addr    (),
+		.ram_lane         (),
 		.ram_select,
 		.ram_read,
 		.ram_write_allowed,
-		.rom_read       (),
-		.rom_addr       (),
+		.dma_read_allowed (),
+		.dma_write_allowed(),
+		.rom_read         (),
+		.rom_addr         (),
 		.io_select,
-		.slot_rom_select(rom_select),
-		.via_d_select   (),
-		.via_e_select   ()
+		.slot_rom_select  (rom_select),
+		.via_d_select     (),
+		.via_e_select     ()
 	);
 	apple3_slots dut (
 		.reset,
@@ -47,12 +50,17 @@ module slots_tb;
 		.cpu_read,
 		.card_data,
 		.card_data_oe(rogue_oe ? 4'b1111 : (card_oe & present)),
+		.dma_req     (4'b0000),
+		.dma_write   (4'b0000),
 		.device_select,
 		.io_rom_select,
 		.io_strobe,
 		.rom_deselect,
 		.data_out,
 		.data_valid,
+		.dma_claim   (),
+		.dma_to_ram  (),
+		.dma_data    (),
 		.bus_conflict
 	);
 	for (genvar s = 0; s < 4; s++) begin : cards

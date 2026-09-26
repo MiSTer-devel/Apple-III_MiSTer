@@ -431,14 +431,17 @@ begin
             when "10" =>
               PC <= unsigned(DI & DL);
             when "11" =>
-              if PCAdder(8) = '1' then
-                if DL(7) = '0' then
-                  PC(15 downto 8) <= PC(15 downto 8) + 1;
-                else
-                  PC(15 downto 8) <= PC(15 downto 8) - 1;
-                end if;
+              -- Taken branch: the low byte first, while the bus carries
+              -- the next opcode's address; a page cross is fixed in the
+              -- following cycle, whose bus address is the old page with
+              -- the new low byte, as on the NMOS 6502.
+              if PCAdd = '1' then
+                PC(7 downto 0) <= PCAdder(7 downto 0);
+              elsif DL(7) = '0' then
+                PC(15 downto 8) <= PC(15 downto 8) + 1;
+              else
+                PC(15 downto 8) <= PC(15 downto 8) - 1;
               end if;
-              PC(7 downto 0) <= PCAdder(7 downto 0);
             when others => null;
           end case;
         end if;
@@ -641,7 +644,7 @@ begin
       "0000000000000001" & std_logic_vector(S(7 downto 0))                            when Set_Addr_To_SP,
       DBR & "00000000" & AD                                                           when Set_Addr_To_ZPG,
       "00000000" & BAH & BAL(7 downto 0)                                              when Set_Addr_To_BA,
-      PBR & std_logic_vector(PC(15 downto 8)) & std_logic_vector(PCAdder(7 downto 0)) when Set_Addr_To_PBR;
+      PBR & std_logic_vector(PC(15 downto 8)) & std_logic_vector(PC(7 downto 0))      when Set_Addr_To_PBR;
 
   -- This is the P that gets pushed on stack with correct B flag. I'm not sure if NMI also clears B, but I guess it does.
   PwithB<=(P and x"ef") when (IRQCycle='1' or NMICycle='1') else P;
@@ -689,7 +692,7 @@ begin
             MCycle <= std_logic_vector(unsigned(MCycle) + 1);
           end if;
 
-          if (IR(4 downto 0)/="10000" or Jump/="11") then -- taken branches delay the interrupts
+          if (IR(4 downto 0)/="10000" or PCAdd/='1') then -- taken branches delay the interrupts
             if NMIAct = '1' and IR/=x"00" then
               NMIReq <= '1';
             else

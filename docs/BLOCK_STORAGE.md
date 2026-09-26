@@ -26,7 +26,8 @@ $C800 expansion ROM.
    AppleCommander, as in the [test notes](../sim/blockdev/README.md), or
    through the System Configuration Program from a driver file. The SOS 1.3
    utilities disk ships a `.PROFILE` driver for Apple's ProFile card; the
-   Problock3 driver replaces it.
+   Problock3 driver replaces it. To keep Apple's driver instead, use the
+   [ProFile card](PROFILE.md).
 3. To boot from the card, set **Boot ROM** to **soshdboot**, mount an image
    that carries its two-block loader and modified `SOS.KERNEL`, such as the
    [ready-made images](https://github.com/robjustice/soshdboot/tree/master/disks)

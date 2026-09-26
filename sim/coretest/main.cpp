@@ -34,9 +34,10 @@ struct DiskReadEntry {
 int main(int argc, char **argv) {
 	Verilated::commandArgs(argc, argv);
 	Vcore_tb top;
-	// Images 0-3 are the floppy drives, 4 and 5 the block card's hard disks.
-	std::vector<uint8_t> disk_image[6];
-	std::string drive_path[6];
+	// Images 0-3 are the floppy drives, 4 and 5 the block card's hard disks,
+	// 6 the ProFile's.
+	std::vector<uint8_t> disk_image[7];
+	std::string drive_path[7];
 	// A "-" in place of the drive 1 image boots with no floppy mounted.
 	if (argc > 2 && std::string(argv[2]) != "-") drive_path[0] = argv[2];
 	const bool disk_test = argc > 2;
@@ -44,7 +45,10 @@ int main(int argc, char **argv) {
 	// the stock ROM's diagnostic and floppy milestones do not apply.
 	bool block_boot = false;
 	// --hd1-out=PATH: save hard disk 1 after the run for host-side checks.
-	std::string hd_out;
+	// --profile=IMAGE mounts a ProFile image and installs the card in slot 4,
+	// or the slot --profile-slot=N names; --profile-out=PATH saves it after.
+	std::string hd_out, profile_out;
+	unsigned profile_slot = 4;
 	// --wp-trace: print each write-protect sense read ($C0EE) with the drive state.
 	bool wp_trace = false;
 	// --frame-out=PATH: after the run, write the next displayed frame as a
@@ -103,6 +107,9 @@ int main(int argc, char **argv) {
 		if (option.rfind("--hd1=", 0) == 0) drive_path[4] = option.substr(6);
 		if (option.rfind("--hd2=", 0) == 0) drive_path[5] = option.substr(6);
 		if (option.rfind("--hd1-out=", 0) == 0) hd_out = option.substr(10);
+		if (option.rfind("--profile=", 0) == 0) drive_path[6] = option.substr(10);
+		if (option.rfind("--profile-out=", 0) == 0) profile_out = option.substr(14);
+		if (option.rfind("--profile-slot=", 0) == 0) profile_slot = std::strtoul(argv[i] + 15, nullptr, 10);
 		if (option == "--block-boot") block_boot = true;
 		if (option == "--wp-trace") wp_trace = true;
 		if (option.rfind("--frame-out=", 0) == 0) frame_out = option.substr(12);
@@ -146,7 +153,8 @@ int main(int argc, char **argv) {
 		if (option.rfind("--mount-delay=", 0) == 0) mount_delay = std::strtod(argv[i] + 14, nullptr);
 		if (option.rfind("--reset-delay=", 0) == 0) reset_delay = std::strtod(argv[i] + 14, nullptr);
 	}
-	for (unsigned drive = 0; drive < 6; ++drive) {
+	if (profile_slot < 2 || profile_slot > 4) { std::fprintf(stderr, "FAIL: --profile-slot must be 2, 3 or 4\n"); return 1; }
+	for (unsigned drive = 0; drive < 7; ++drive) {
 		if (!disk_test || drive_path[drive].empty()) continue;
 		const char *path = drive_path[drive].c_str();
 		std::ifstream input(path, std::ios::binary);
@@ -178,6 +186,7 @@ int main(int argc, char **argv) {
 	top.ps2_key = 0;
 	top.ps2_mouse = 0;
 	top.mouse_card_installed = mouse_card;
+	top.profile_slot = disk_image[6].empty() ? 0 : profile_slot;
 	top.plus_keymap = plus_keymap;
 	top.ram_128k = ram_128k;
 	top.soshdboot = soshdboot;
@@ -244,7 +253,7 @@ int main(int argc, char **argv) {
 		const unsigned long long steps = static_cast<unsigned long long>(seconds * 2 * 14318181.0);
 		for (unsigned long long i = 0; i < steps; ++i) { prepare_storage(); top.clk ^= 1; top.eval(); finish_storage(); }
 	};
-	for (unsigned drive = 0; drive < 6; ++drive) {
+	for (unsigned drive = 0; drive < 7; ++drive) {
 		if (disk_image[drive].empty()) continue;
 		run_seconds(mount_delay);
 		top.image_size = disk_image[drive].size(); top.image_change = 1 << drive;
@@ -707,8 +716,13 @@ int main(int argc, char **argv) {
 		output.write(reinterpret_cast<const char *>(disk_image[4].data()), disk_image[4].size());
 		std::printf("hard disk 1 saved to %s\n", hd_out.c_str());
 	}
-	if (!disk_image[4].empty() || !disk_image[5].empty())
-		std::printf("block card: %u host transfers\n", hd_transfers);
+	if (!profile_out.empty() && !disk_image[6].empty()) {
+		std::ofstream output(profile_out, std::ios::binary);
+		output.write(reinterpret_cast<const char *>(disk_image[6].data()), disk_image[6].size());
+		std::printf("ProFile image saved to %s\n", profile_out.c_str());
+	}
+	if (!disk_image[4].empty() || !disk_image[5].empty() || !disk_image[6].empty())
+		std::printf("block card and ProFile: %u host transfers\n", hd_transfers);
 	if (disk_test)
 		std::printf("disk image=%s buffered=%u sd_reads=%u bootstrap_A000=%u boot_block_error=%u ext_fetch_ok=%u loader_return=%u "
 		            "loader_jump=%u interpreter=%u final_track=%u loader_io_error=%04X "

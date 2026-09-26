@@ -26,7 +26,10 @@ All card logic uses `clk_14m`. Vector index 0 is physical slot 1, through index
 | `slot_data_oe[n]` | Card is driving read data for this address |
 | `slot_irq_n[n]`, `slot_nmi_n[n]` | Card's active-low interrupt requests; tie unused inputs high |
 | `slot_ready[n]` | 0 holds CPU reads through the shared RDY line; tie unused inputs high |
-| `slot_bus_conflict` | More than one card is driving the shared read bus |
+| `slot_dma_ok` | DMAOK: this CPU cycle fetches from the ROM's pseudo-DMA block, $F800–$F8FF |
+| `slot_dma_req[n]`, `slot_dma_write[n]` | DMAI: the card claims the DMAOK cycle; `write` = 1 puts its `slot_data_in` byte into RAM, 0 takes the RAM byte |
+| `slot_dma_data[7:0]` | The RAM byte of a claimed cycle, for a card taking data |
+| `slot_bus_conflict` | More than one card is driving the shared read bus, or claiming the same DMA cycle |
 
 Selects and read data remain valid between CPU enables. Qualify register
 writes, read acknowledgements and ROM-latch changes with `slot_cycle`; do not
@@ -106,8 +109,27 @@ Reset alone in native mode leaves the cards intact and requests NMI. In Apple
 II mode the card reset line also follows the NMI net, per sheet 9: Reset alone
 or any card's NMI resets every card, unless environment bit 4 locks both out.
 
-Coprocessor/DMA ownership and memory inhibit are not part of this interface
-yet. Ownership will be added with the first card that needs it.
+## Pseudo-DMA
+
+The Apple /// has no bus-mastering DMA, but its service manual lists an "I/O
+block transfer" of up to a page "without DMA hardware on the peripheral", and
+the boot ROM keeps a "pseudo DMA block" for it: 64 pairs of `SBC #1` / `BEQ`
+at $F800–$F8FF, entered at any even offset with the byte count in A. Every
+fetch from that page is a cycle the motherboard marks with DMAOK (slot pin
+27). A card that has been told to (the ProFile card, after any access to its
+$Cnxx page) answers on DMAI (pin 28) and one byte moves between the card's
+data bus and RAM on each such cycle: the CPU reads its ROM byte as usual, and
+the RAM side of the cycle goes to the zero page instead, page `Z` in the bank
+the bank register selects, at the fetch's low address byte. Apple's ProFile
+driver sets the zero-page register to the target page and the bank register
+to its bank, then calls the ladder; the 6502's dummy fetches during a taken
+branch also transfer bytes, which the driver's last-page arithmetic counts
+on ([details](PROFILE.md)).
+
+In the core, `slot_dma_ok` is the DMAOK term, `slot_dma_req[n]` a card's DMAI,
+and `apple3_mmu` supplies the zero page's RAM address for the claimed cycle
+while decoding the ROM for the CPU. A cycle nobody claims is an ordinary ROM
+fetch. Memory inhibit and bus ownership remain outside the interface.
 
 ## Sources
 

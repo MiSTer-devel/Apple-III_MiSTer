@@ -24,6 +24,8 @@ usable one: most software tried so far runs well.
 - Copy-protected originals boot from plain sector dumps
 - Two hard-disk drives for your own images, bootable with the built-in
   soshdboot ROM ([details](docs/BLOCK_STORAGE.md))
+- Apple's ProFile interface card, for the stock `.PROFILE` driver and its
+  pseudo-DMA ([details](docs/PROFILE.md))
 - Apple's mouse card in slot 4, driven by the MiSTer's mouse
 - The real keyboard's auto-repeat and Solid Apple speed-up
 - Two joysticks, each with its button and latching switch
@@ -50,7 +52,7 @@ has native Apple /// games as ready-to-mount disk images.
    **Mount Drive 1** to select a boot disk. **Mount Drive 2–4** are the three
    external Disk III drives. Each drive has its own **Write Protect** option.
    **Mount Hard Disk 1** and **2** take ProDOS-order images for the block
-   card in slot 1
+   card in slot 1, and **Mount ProFile** one for the ProFile card
 5. If SOS lists only two drives, use System Utilities → **System Configuration
    Program**: read your `SOS.DRIVER`, set **Change System Parameters → Number of
    Disk III Drives** to **4**, then **Generate New System** to save `SOS.DRIVER`
@@ -80,10 +82,11 @@ Supported: **WOZ, DSK, DO, PO, NIB and 2MG**.
   which is most of what circulates, are left without the key so SOS does not
   try to decrypt them.
 
-Hard-disk images for the block card are **PO, HDV or ProDOS-order 2MG**, any
-multiple of 512 bytes, written in place. Images beyond 32 MiB show their first
-65,535 blocks. A read-only file, a write-protected 2MG, a DC42 container or a
-zip member mounts read-only.
+Hard-disk images for the block card and the ProFile are **PO, HDV or
+ProDOS-order 2MG**, any multiple of 512 bytes, written in place. Images beyond
+32 MiB show their first 65,535 blocks on the block card; Apple's ProFile
+driver addresses a 5 MB drive, 9,728 blocks. A read-only file, a
+write-protected 2MG, a DC42 container or a zip member mounts read-only.
 
 A2R flux captures are not supported; export them to WOZ with the free
 [Applesauce client](https://applesaucefdc.com/software/), which runs on macOS
@@ -137,6 +140,12 @@ with its soft text and bleeding color. [Details](docs/VIDEO_SOURCES.md).
 **Video Standard** in the OSD selects NTSC or PAL: Apple's 50 Hz "Euro
 system", the same picture in a 310-line frame. [Details](docs/PAL.md).
 
+**ProFile Card** in the OSD puts Apple's ProFile interface card in slot 4,
+where the SOS 1.3 utilities' `.PROFILE` driver and Apple's manuals expect it
+and where it takes the mouse card's place, or in slot 3 or 2 for a driver
+configured to match. It serves the **Mount ProFile** image and takes effect at
+the next reset. [Details](docs/PROFILE.md).
+
 **Mouse Card** in the OSD is Apple's mouse card in slot 4, where SOS mouse
 drivers are usually configured to find it, and **Mouse Speed** sets how far
 the MiSTer's mouse moves it; Normal is close to Apple's mouse.
@@ -189,9 +198,6 @@ Existing partial implementations are noted where they provide a starting point.
       required bus integration and storage-driver configuration.
 
 - [ ] **Titan III+IIe.** Add support for this expansion.
-
-- [ ] **ProFile interface.** Model Apple's ProFile card so the stock `.PROFILE`
-      driver works, alongside the Problock3 block card.
 
 - [ ] **Save States**
 
