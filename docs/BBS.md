@@ -57,6 +57,68 @@ Open Apple (the Windows or Command key) + **C** runs a command file instead:
 Type `+++`, wait a second, then `ATH` and Return. MidiLink answers
 `NO CARRIER` and `OK`.
 
+## Hosting a mailbox
+
+`tools/mailbox/MAILBOX.BAS` turns the Apple /// into a one-line mailbox for a
+friend. They call in with any telnet program to read your messages, leave
+theirs, or chat with you live. MiSTer's modem answers the call, so the Apple ///
+must be running the Mailbox when they call.
+
+Build the disk from Apple's Business BASIC 1.23 disk (`Apple3BusBasic1.23.dsk`
+from apple3.org or the Asimov archive). Set the two names at the top of
+`MAILBOX.BAS` first:
+
+```sh
+tools/mailbox_disk.py Apple3BusBasic1.23.dsk Mailbox.dsk
+```
+
+Set the MiSTer's UART as in step 2, mount `Mailbox.dsk` as Drive 1 and reset.
+Business BASIC runs the Mailbox at boot. At the waiting screen, **R** reads
+their messages, **W** writes one for them (an empty line ends it), **D**
+deletes theirs, **C** clears yours and **Q** quits. During a call, **ESC** hangs
+up, and when they choose chat, whatever you type goes to them.
+
+Your friend connects to the MiSTer's address on port 23, for example
+`telnet 192.168.1.20`, or with PuTTY or SyncTERM. From another MiSTer, Access ///
+dials `ATDT192.168.1.20:23`. Their menu is **R** read, **L** leave a message,
+**C** chat and **G** goodbye.
+
+To reach it from outside your home, forward one TCP port on your router to the
+MiSTer's port 23 and give them your public address and that port. Use an
+unusual outside port such as 6502: bots scan port 23 constantly and would keep
+the one line busy. Forward nothing else; the MiSTer's ssh logs in as root with
+password `1`.
+
+* Messages are the text files `INBOX` and `OUTBOX` on the disk, so leave Write
+  Protect off.
+* One caller at a time. A second caller's connection waits, silent, until the
+  first hangs up, and is then answered; MidiLink says `BUSY` only while the
+  Apple /// is itself dialing out.
+* The caller sees `+++` as the Mailbox hangs up: that is the modem's hang-up
+  command, which MidiLink passes through.
+* `tools/business_basic.py` lists and tokenizes Business BASIC programs, so
+  `MAILBOX.BAS` stays plain text.
+
+### Party line
+
+For more than one caller, the MiSTer stands in for a bank of modems.
+`tools/partyline/partyline.py` answers up to six telnet callers, asks their
+names and handles their typing; the Mailbox is still the host. Every line goes
+to the Apple ///, which shows it, logs it to `PARTYLOG` and sends it back to
+everyone, so nobody hears anybody while the Apple /// is out of the room.
+
+Copy `tools/partyline/partyline.sh` and `partyline.py` to `/media/fat/Scripts`,
+boot the Mailbox and run **partyline** from the Scripts menu. MiSTer's modem
+stops while it runs; run it again to bring the modem back, before loading
+another core. The Apple /// joins the room when the party line starts or
+someone joins. Type there to talk, **ESC** leaves, and **P** at the waiting
+screen rejoins; **L** reads the log. Callers connect as before, give a name, and
+have `/who` and `/bye`. `tools/partyline/test_partyline.py` checks the relay
+with a stand-in Apple ///.
+
+`tools/mailbox_disk.py --messages-from OLD.dsk` keeps `INBOX`, `OUTBOX` and
+`PARTYLOG` when rebuilding the disk.
+
 ## Notes
 
 * Level 29's first line can show a few stray characters from its telnet

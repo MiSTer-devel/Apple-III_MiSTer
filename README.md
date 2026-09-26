@@ -153,7 +153,7 @@ the other port. Button 1 is the joystick's pushbutton, and each press of button
 Serial uses MiSTer's UART. Leave **Serial CTS** and **Serial DSR** at **Always
 ready** unless using host hardware flow control, and **Serial DCD** at **Always
 on** unless a program should see carrier from the host (**Host DTR**) or none
-(**Off**). With MiSTer's modem it can [call a BBS](docs/BBS.md). [Serial details](docs/DEVELOPMENT.md#serial-port).
+(**Off**). With MiSTer's modem it can [call a BBS or host a mailbox](docs/BBS.md). [Serial details](docs/DEVELOPMENT.md#serial-port).
 
 ## Building and simulation
 
