@@ -1,8 +1,8 @@
 # ProFile interface card
 
 The core carries a model of Apple's ProFile Interface card for the Apple ///
-(schematic 050-5007-A) with a ProFile drive behind it, served from the
-**Mount ProFile** image. It exists so that Apple's own `.PROFILE` driver, the
+(schematic 050-5007-A) with a ProFile drive behind it, served from a hard-disk
+image. It exists so that Apple's own `.PROFILE` driver, the
 one on the SOS 1.3 utilities disk and in Catalyst, Selector and the Pascal
 ProFile Manager, runs unmodified. The [block-storage card](BLOCK_STORAGE.md)
 remains the faster route for Problock3 and soshdboot; the two can be used
@@ -11,23 +11,26 @@ together.
 ## Using it
 
 1. Put a ProDOS-order image in `games/Apple-III/` and choose it with **Mount
-   ProFile**. PO, HDV and ProDOS-order 2MG are accepted; the length must be a
+   Hard Disk 1**. PO, HDV and ProDOS-order 2MG are accepted; the length must be a
    multiple of 512 bytes. `tools/blank_hd.py --size 9728 profile.po` makes an
    empty 5 MB volume, the size Apple's driver expects; a larger image works,
    but the SOS 1.3 driver's device information block declares 9,728 blocks,
    so SOS uses only that much of it.
-2. Set **ProFile Card** in the OSD's Hardware page to **Slot 4** and reset.
+2. Set **Slot 4** in the OSD's Hardware page to **ProFile HD1** and reset.
    That is where Apple's software expects the card: the utilities disk's
    `.PROFILE` driver is configured for slot 4, and the owner's manual calls it
-   the usual slot. The mouse card leaves slot 4 while the ProFile card is
-   there. **Slot 3** or **Slot 2** keep the mouse and suit a driver whose slot
-   was changed with the System Configuration Program.
+   the usual slot. It takes the mouse card's place; put the mouse card in
+   another slot if a mouse driver there is configured to match. **ProFile HD2**
+   is a second card on **Hard Disk 2**, for a second copy of the driver set to
+   its slot with the System Configuration Program
+   ([choosing the cards](SLOTS.md#choosing-the-cards)).
 3. Boot the SOS 1.3 utilities or any disk whose `SOS.DRIVER` holds
    `.PROFILE`. The volume appears under its own name and SOS reads and writes
    it in place, so keep a copy of the image.
 
-With the card **Off**, the default, the image is mounted but nothing answers
-the driver, which reports no ProFile.
+With no ProFile card in a slot, the default, nothing answers the driver,
+which reports no ProFile. The block card, in slot 1 as shipped, serves the
+same hard disks to the Problock3 driver ([block storage](BLOCK_STORAGE.md)).
 
 ## The card
 
@@ -149,14 +152,13 @@ access.
 
 ## Interface to the machine
 
-The card takes the slot the **ProFile Card** option names, latched at reset
-like the mouse card's presence, since cards are installed with the power
-off. In slot 4 the mouse card is out; in slot 3 or 2 both are present. The
-image is Main's S6, handled as the block card's S4 and S5 are: 2MG data
-offsets honoured, writes in place, read-only sources refused
-([Main storage](MAIN_STORAGE.md)). Main's Apple III profile needs to know
-about S6 to strip a 2MG header; raw PO and HDV images also work with an older
-Main through its generic path.
+The card takes the slot the **Slot** options give it, latched at reset since
+cards are installed with the power off ([choosing the cards](SLOTS.md#choosing-the-cards)).
+Its image is the hard disk's, Main's S4 or S5, so 2MG data offsets are
+honoured, writes go in place and read-only sources are refused
+([Main storage](MAIN_STORAGE.md)). When the block card is installed too it
+reaches the same image, and `apple3_sd_arbiter` passes Main one card's
+request at a time.
 
 ## Validation
 
@@ -181,9 +183,9 @@ Main through its generic path.
   confirms that a deselected card leaves the ladder alone. 945,434 clocks,
   5 host transfers, 1,728 pseudo-DMA cycles.
 
-Whole-system runs use `sim/run_core_boot.sh` with `--profile=IMAGE` and the
-SOS 1.3 utilities converted to WOZ, which boot with Apple's `.PROFILE`
-driver at slot 4 and the card there.
+Whole-system runs use `sim/run_core_boot.sh` with `--hd1=IMAGE
+--slot4=profile1` and the SOS 1.3 utilities converted to WOZ, which boot with
+Apple's `.PROFILE` driver at slot 4 and the card there.
 
 ## Results, 2026-09-26
 
@@ -203,12 +205,34 @@ driver at slot 4 and the card there.
 - Quartus 17.0.2: 0 errors; worst setup slack 0.302 ns (the HDMI PLL, as
   before), 5.5 ns on the machine clock; 21,639 ALMs (52%) and 503 M10K
   blocks (91%).
-- MiSTer with the paired Main, **ProFile Card** at Slot 4: the same floppy
-  and image, on **Mount ProFile**. **List files** of `.profile` prints
+- MiSTer with the paired Main and the card in slot 4 (the build before the
+  **Slot** options had its own ProFile image and option): the same floppy and
+  image. **List files** of `.profile` prints
   `/PROFILE` with both files and `9717 blocks available`; **Make a new
   subdirectory** `.profile/hwtest` reports `/PROFILE/HWTEST made`. The image
   pulled from the SD card differs from the original in blocks 2, 6 and 11,
   the same blocks as in simulation, and lists the new directory.
+
+With the **Slot** options, the same day:
+
+- `sim/slots/run.sh`'s card bench passes 138 checks, and `make test` passes
+  whole, with its serial and joystick benches, which the first ProFile build
+  had left without the card's source.
+- The same floppy and image on the harness: the ProFile card for **Hard Disk
+  1** in slot 4 lists `/PROFILE` and makes `/PROFILE/MKDIRTEST` with the
+  block card in slot 1 on the same disk and without it; the card for **Hard
+  Disk 2** lists the image mounted there; the Problock3 utilities list it
+  through the block card moved to slot 3; and the soshdboot ROM boots from
+  the block card in slot 2.
+- Quartus 17.0.2: 0 errors, every clock meets timing (worst setup slack
+  0.530 ns, hold 0.243 ns); 22,001 ALMs (52%) and 504 M10K blocks (91%),
+  one more for the second ProFile card's buffer.
+- MiSTer, **Slot 4** at ProFile HD1 and the image on **Hard Disk 1**: the
+  utilities [list `/PROFILE`](profile/2026-09-26-profile-slot4-list.png) and
+  make `/PROFILE/SLOTTEST`. With the slots as shipped the Problock3 utilities
+  then [list the same image](profile/2026-09-26-block-card-list-after.png)
+  through the block card, the new directory included, and the image pulled
+  from the SD card holds it.
 
 ## Sources
 

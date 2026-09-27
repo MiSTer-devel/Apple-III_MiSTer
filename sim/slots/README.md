@@ -14,7 +14,12 @@ out if slot I/O, RAM overlays, IRQ dispatch, persistent/concurrent requests,
 NMI masking or CPU-mode behavior fails. The bench also injects actual PS/2
 Reset and Control-Reset events to verify card reset and retained state.
 
-These synthetic cards are test fixtures, not installed peripherals. See
+`cards_tb.sv` runs `rtl/apple3_cards.sv` with the real cards: each card in
+each slot, both ProFile cards at once, a card chosen for two slots, invalid
+codes and a choice made without a reset; then `apple3_sd_arbiter` with two
+requesting cards and a host.
+
+The synthetic cards are test fixtures, not installed peripherals. See
 [the card interface](../../docs/SLOTS.md) for the connection contract and
 hardware sources. Coprocessor ownership remains separate work. Card RDY waits
 are covered by [the CPU timing diagnostic](../timing/run.sh).

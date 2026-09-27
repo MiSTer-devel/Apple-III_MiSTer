@@ -1,12 +1,13 @@
 # Virtual block-storage card
 
-Slot 1 holds a virtual ProDOS block-mode card. It serves two hard-disk images
+Slot 1 holds a virtual ProDOS block-mode card, unless the OSD's **Slot**
+options move it ([choosing the cards](SLOTS.md#choosing-the-cards)). It serves two hard-disk images
 from Main's block-device assignments, S4 and S5, as drives 1 and 2. SOS uses
 it through Rob Justice's [Problock3](https://github.com/robjustice/Problock3)
 driver, and the [soshdboot](https://github.com/robjustice/soshdboot) ROM and
 kernel boot from it with no floppy. The card is modeled on the AppleWin
 hard-disk controller that the Apple II MiSTer core uses, with its own
-firmware. It occupies only slot 1's device and ROM pages: no interrupts, no
+firmware. It occupies only its slot's device and ROM pages: no interrupts, no
 $C800 expansion ROM.
 
 ## Using it
@@ -26,8 +27,8 @@ $C800 expansion ROM.
    AppleCommander, as in the [test notes](../sim/blockdev/README.md), or
    through the System Configuration Program from a driver file. The SOS 1.3
    utilities disk ships a `.PROFILE` driver for Apple's ProFile card; the
-   Problock3 driver replaces it. To keep Apple's driver instead, use the
-   [ProFile card](PROFILE.md).
+   Problock3 driver replaces it. To keep Apple's driver instead, put the
+   [ProFile card](PROFILE.md) in slot 4 for the same hard disk.
 3. To boot from the card, set **Boot ROM** to **soshdboot**, mount an image
    that carries its two-block loader and modified `SOS.KERNEL`, such as the
    [ready-made images](https://github.com/robjustice/soshdboot/tree/master/disks)
@@ -68,8 +69,8 @@ formatter (control code $FE), and SOS reports error 103.
 
 ## Card interface
 
-Slot 1 decodes $C090–$C09F for the registers and $C100–$C1FF for the
-firmware ([slot rules](SLOTS.md)). Register offsets:
+In slot 1 the card decodes $C090–$C09F for the registers and $C100–$C1FF
+for the firmware, and in slot n $C080+16n and $Cn00 ([slot rules](SLOTS.md)). Register offsets:
 
 | Offset | Access | Function |
 |---|---|---|
@@ -131,8 +132,9 @@ header. [Main storage](MAIN_STORAGE.md) describes the formats.
 Problock3 and the soshdboot ROM find the card in any slot. Slot 4 is the
 Apple II mouse card's usual place and what Rob Justice's mouse-enabled image
 expects, so the block card leaves it free. The slot is only a matter of which
-slot's selects and ready input `Apple-III.sv` wires to the card; the firmware
-and the card itself do not depend on it.
+slot's selects and ready input `apple3_cards` gives the card, which the
+**Slot** options choose; the firmware and the card itself do not depend on
+it.
 
 ## Validation
 

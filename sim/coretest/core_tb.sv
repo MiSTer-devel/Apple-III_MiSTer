@@ -11,11 +11,10 @@ module core_tb #(
 	output wire               serial_rts_n,
 	output wire               serial_dtr_n,
 	input  logic       [10:0] ps2_key,
-	// The mouse card in slot 4, with --mouse-card, and MiSTer's mouse report.
-	input  logic              mouse_card_installed,
+	// The card in each slot, three bits each from slot 1 up, in apple3_cards'
+	// codes (--slotN), and MiSTer's mouse report for the mouse card.
+	input  logic       [11:0] slot_cards,
 	input  logic       [24:0] ps2_mouse,
-	// The ProFile card's slot, 2 to 4, or 0 for no card (--profile-slot).
-	input  logic       [ 2:0] profile_slot,
 	input  logic              plus_keymap,
 	input  logic              ram_128k,
 	// The OSD's Boot ROM option: Rob Justice's soshdboot ROM.
@@ -43,22 +42,20 @@ module core_tb #(
 	output logic       [15:0] probe_word,
 	input  logic       [ 9:0] probe_font_addr,
 	output logic       [ 7:0] probe_font,
-	// Images 0-3 are the Disk III drives, 4 and 5 the block card's, 6 the
-	// ProFile's.
-	input  logic       [ 6:0] image_change,
+	// Images 0-3 are the Disk III drives, 4 and 5 hard disks 1 and 2.
+	input  logic       [ 5:0] image_change,
 	input  logic       [63:0] image_size,
 	input  logic              image_readonly,
-	output wire        [31:0] sd_lba              [7],
-	output wire        [ 5:0] sd_blk_cnt          [7],
-	output wire        [ 6:0] sd_rd,
+	output wire        [31:0] sd_lba         [6],
+	output wire        [ 5:0] sd_blk_cnt     [6],
+	output wire        [ 5:0] sd_rd,
 	sd_wr,
-	input  logic       [ 6:0] sd_ack,
+	input  logic       [ 5:0] sd_ack,
 	input  logic       [13:0] sd_buff_addr,
 	input  logic       [ 7:0] sd_buff_dout,
-	output wire        [ 7:0] sd_buff_din         [7],
+	output wire        [ 7:0] sd_buff_din    [6],
 	input  logic              sd_buff_wr,
-	output wire               block_activity,
-	output wire               profile_activity,
+	output wire               card_activity,
 	// Rendered picture for --frame-out.
 	output wire        [ 7:0] frame_r,
 	frame_g,
@@ -168,102 +165,55 @@ module core_tb #(
 	assign write_mode1 = disk_write_mode && disk_active[0];
 	assign valid1      = drives[0].woz.valid && drives[0].woz.ready && (drives[0].woz.bit_count != 0);
 
-	// The block card sits in slot 1, as in the MiSTer top.
-	wire [15:0] slot_addr;
-	wire [7:0] slot_data_out, block_data, block_din, slot_dma_data;
-	wire slot_cpu_read, slot_cycle, slot_reset, slot_rom_deselect, slot_dma_ok, block_oe, block_ready;
-	wire [3:0] slot_device_select, slot_io_select;
-	wire [31:0] block_lba;
-	wire [1:0] block_rd, block_wr;
-	apple3_block_card block_card (
+	// The card cage, as in the MiSTer top.
+	wire [15:0]      slot_addr;
+	wire [ 3:0][7:0] slot_data_in;
+	wire [3:0] slot_device_select, slot_io_select, slot_data_oe, slot_irq_n, slot_ready;
+	wire [3:0] slot_dma_req, slot_dma_write;
+	wire [7:0] slot_data_out, slot_dma_data;
+	wire slot_cpu_read, slot_cycle, slot_reset, slot_rom_deselect, slot_dma_ok;
+	wire [1:0][31:0] hd_lba;
+	wire [1:0][ 7:0] hd_din;
+	apple3_cards cards (
 		.clk,
 		.reset        (slot_reset),
 		.cycle        (slot_cycle),
+		.slot_card    (slot_cards),
 		.addr         (slot_addr[7:0]),
 		.cpu_read     (slot_cpu_read),
 		.data_in      (slot_data_out),
-		.device_select(slot_device_select[0]),
-		.io_select    (slot_io_select[0]),
-		.data_out     (block_data),
-		.data_oe      (block_oe),
-		.ready        (block_ready),
-		.activity     (block_activity),
+		.device_select(slot_device_select),
+		.io_select    (slot_io_select),
+		.rom_deselect (slot_rom_deselect),
+		.dma_ok       (slot_dma_ok),
+		.dma_data     (slot_dma_data),
+		.data_out     (slot_data_in),
+		.data_oe      (slot_data_oe),
+		.irq_n        (slot_irq_n),
+		.ready        (slot_ready),
+		.dma_req      (slot_dma_req),
+		.dma_write    (slot_dma_write),
+		.activity     (card_activity),
+		.ps2_mouse,
+		.mouse_speed  (2'd3),
 		.image_change (image_change[5:4]),
 		.image_size,
 		.image_readonly,
-		.sd_lba       (block_lba),
-		.sd_rd        (block_rd),
-		.sd_wr        (block_wr),
+		.sd_lba       (hd_lba),
+		.sd_rd        (sd_rd[5:4]),
+		.sd_wr        (sd_wr[5:4]),
 		.sd_ack       (sd_ack[5:4]),
 		.sd_buff_addr (sd_buff_addr[8:0]),
 		.sd_buff_dout,
-		.sd_buff_din  (block_din),
+		.sd_buff_din  (hd_din),
 		.sd_buff_wr
 	);
-	assign sd_lba[4]      = block_lba;
-	assign sd_lba[5]      = block_lba;
+	assign sd_lba[4]      = hd_lba[0];
+	assign sd_lba[5]      = hd_lba[1];
 	assign sd_blk_cnt[4]  = 6'd0;
 	assign sd_blk_cnt[5]  = 6'd0;
-	assign sd_rd[5:4]     = block_rd;
-	assign sd_wr[5:4]     = block_wr;
-	assign sd_buff_din[4] = block_din;
-	assign sd_buff_din[5] = block_din;
-
-	// The ProFile card takes the slot --profile-slot names; in slot 4 it
-	// displaces the mouse card, as in the MiSTer top.
-	wire [3:0] profile_here = (profile_slot == 3'd4) ? 4'b1000 : (profile_slot == 3'd3) ? 4'b0100 :
-							  (profile_slot == 3'd2) ? 4'b0010 : 4'b0000;
-	wire [7:0] profile_data;
-	wire profile_oe, profile_dma_req, profile_dma_write;
-	apple3_profile_card profile_card (
-		.clk,
-		.reset        (slot_reset || (profile_here == 4'b0000)),
-		.cycle        (slot_cycle),
-		.addr         (slot_addr[3:0]),
-		.cpu_read     (slot_cpu_read),
-		.data_in      (slot_data_out),
-		.device_select(|(slot_device_select & profile_here)),
-		.io_select    (|(slot_io_select & profile_here)),
-		.rom_deselect (slot_rom_deselect),
-		.data_out     (profile_data),
-		.data_oe      (profile_oe),
-		.activity     (profile_activity),
-		.dma_ok       (slot_dma_ok),
-		.dma_data     (slot_dma_data),
-		.dma_req      (profile_dma_req),
-		.dma_write    (profile_dma_write),
-		.image_change (image_change[6]),
-		.image_size,
-		.image_readonly,
-		.sd_lba       (sd_lba[6]),
-		.sd_rd        (sd_rd[6]),
-		.sd_wr        (sd_wr[6]),
-		.sd_ack       (sd_ack[6]),
-		.sd_buff_addr (sd_buff_addr[8:0]),
-		.sd_buff_dout,
-		.sd_buff_din  (sd_buff_din[6]),
-		.sd_buff_wr
-	);
-	assign sd_blk_cnt[6] = 6'd0;
-
-	// The mouse card sits in slot 4, as in the MiSTer top.
-	wire [7:0] mouse_data;
-	wire mouse_oe, mouse_irq_n;
-	apple3_mouse_card mouse_card (
-		.clk,
-		.reset        (slot_reset || !mouse_card_installed || profile_here[3]),
-		.cycle        (slot_cycle),
-		.addr         (slot_addr[7:0]),
-		.cpu_read     (slot_cpu_read),
-		.data_in      (slot_data_out),
-		.device_select(slot_device_select[3]),
-		.io_select    (slot_io_select[3]),
-		.data_out     (mouse_data),
-		.data_oe      (mouse_oe),
-		.irq_n        (mouse_irq_n),
-		.ps2_mouse,
-		.speed        (2'd3)
-	);
+	assign sd_buff_din[4] = hd_din[0];
+	assign sd_buff_din[5] = hd_din[1];
 
 	apple3_core #(
 		.ROM_INIT_FILE (ROM_FILE),
@@ -293,11 +243,11 @@ module core_tb #(
 		.joy_a_switch,
 		.joy_b_button,
 		.joy_b_switch,
-		.slot_data_in       ({profile_here[3] ? profile_data : mouse_data, profile_data, profile_data, block_data}),
-		.slot_data_oe       ({profile_here[3] ? profile_oe : mouse_oe, profile_here[2:1] & {2{profile_oe}}, block_oe}),
-		.slot_irq_n         ({profile_here[3] || mouse_irq_n, 3'b111}),
+		.slot_data_in       (slot_data_in),
+		.slot_data_oe       (slot_data_oe),
+		.slot_irq_n         (slot_irq_n),
 		.slot_nmi_n         (4'b1111),
-		.slot_ready         ({3'b111, block_ready}),
+		.slot_ready         (slot_ready),
 		.slot_addr          (slot_addr),
 		.slot_data_out      (slot_data_out),
 		.slot_cpu_read      (slot_cpu_read),
@@ -309,8 +259,8 @@ module core_tb #(
 		.slot_rom_deselect  (slot_rom_deselect),
 		.slot_bus_conflict  (),
 		.slot_dma_ok        (slot_dma_ok),
-		.slot_dma_req       (profile_here & {4{profile_dma_req}}),
-		.slot_dma_write     (profile_here & {4{profile_dma_write}}),
+		.slot_dma_req       (slot_dma_req),
+		.slot_dma_write     (slot_dma_write),
 		.slot_dma_data      (slot_dma_data),
 		.rom_we             (1'b0),
 		.rom_host_addr      (13'd0),

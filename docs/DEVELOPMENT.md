@@ -246,6 +246,7 @@ bash sim/accuracy/run.sh                # documentation-derived checks
 ./sim/timing/run.sh                     # CPU peripheral waits, RDY, RMW and NMI
 ./sim/blockdev/run.sh                   # block card registers, firmware, real-CPU driver calls
 ./sim/profile/run.sh                    # ProFile card protocol and real-CPU pseudo-DMA
+./sim/slots/run.sh                      # slot decode, real-CPU card bus, each card in each slot
 ./sim/mouse/run.sh                      # mouse card under SOS's mouse driver sequences
 ./sim/run_core_boot.sh 30000000
 ./sim/blockdev/run_soshdboot.sh         # soshdboot ROM booting a generated hard disk
@@ -258,10 +259,12 @@ reset, memory sizing, reconfiguration and the disk bootstrap happen. With a WOZ
 image it follows SOS to the interpreter through the real track cache.
 `--drive2=blank.woz`, `--drive3=blank.woz` and `--drive4=blank.woz`
 mount the three external drives on the shared transfer bus, and
-`--hd1=hard.po`/`--hd2=hard.po` mount the block card's images
-([block storage tests](../sim/blockdev/README.md)), `--profile=hard.po`
-mounts a ProFile image with the card in slot 4, or the slot `--profile-slot=N`
-names ([ProFile tests](../sim/profile/README.md)); `--soshdboot` sets
+`--hd1=hard.po`/`--hd2=hard.po` mount the hard disks and `--hd1-out=`/`--hd2-out=`
+save them after the run. `--slot1=` to `--slot4=` choose each slot's card as the
+OSD's **Slot** options do: `block`, `profile1`, `profile2`, `mouse` or `empty`,
+with the block card in slot 1 and the rest empty unless told otherwise
+([block storage tests](../sim/blockdev/README.md),
+[ProFile tests](../sim/profile/README.md)); `--soshdboot` sets
 **Boot ROM** to soshdboot, and `--alpha-lock` turns Alpha Lock on as the
 machine starts. `--frame-out=frame.ppm`
 saves the rendered 560x192 picture at the end of a run, which is what a
@@ -271,7 +274,7 @@ MiSTer screenshot shows; the text dumps decode display memory instead.
 `--video=color` or `--video=mono` takes it from that [video source](VIDEO_SOURCES.md),
 and `--monitor=green`, `amber` or `tv` from that monitor on it.
 `--ram128k` runs the 128 KiB memory board.
-`--mouse-card` puts the [mouse card](MOUSE.md) in slot 4, and the `--keys`
+`--mouse-card` is `--slot4=mouse` for the [mouse card](MOUSE.md), and the `--keys`
 script then takes `mouse:DX:DY` for a host mouse report, `mouse:DX:DY:N` for N
 of them a sixtieth of a second apart, and `button:1` or `button:0` for its
 button. `--mouse-trace` prints the bytes that cross the card's PIA port A: the

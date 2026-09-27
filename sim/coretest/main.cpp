@@ -34,21 +34,24 @@ struct DiskReadEntry {
 int main(int argc, char **argv) {
 	Verilated::commandArgs(argc, argv);
 	Vcore_tb top;
-	// Images 0-3 are the floppy drives, 4 and 5 the block card's hard disks,
-	// 6 the ProFile's.
-	std::vector<uint8_t> disk_image[7];
-	std::string drive_path[7];
+	// Images 0-3 are the floppy drives, 4 and 5 hard disks 1 and 2.
+	std::vector<uint8_t> disk_image[6];
+	std::string drive_path[6];
 	// A "-" in place of the drive 1 image boots with no floppy mounted.
 	if (argc > 2 && std::string(argv[2]) != "-") drive_path[0] = argv[2];
 	const bool disk_test = argc > 2;
 	// --block-boot: the boot ROM loads block 0 from the card (soshdboot), so
 	// the stock ROM's diagnostic and floppy milestones do not apply.
 	bool block_boot = false;
-	// --hd1-out=PATH: save hard disk 1 after the run for host-side checks.
-	// --profile=IMAGE mounts a ProFile image and installs the card in slot 4,
-	// or the slot --profile-slot=N names; --profile-out=PATH saves it after.
-	std::string hd_out, profile_out;
-	unsigned profile_slot = 4;
+	// --hd1-out=PATH, --hd2-out=PATH: save a hard disk after the run for
+	// host-side checks.
+	std::string hd_out[2];
+	// --slotN=CARD puts empty, block, profile1 (the ProFile card on hard
+	// disk 1), profile2 or mouse in slot N, as the OSD's Slot options do; the
+	// codes are apple3_cards'. The block card starts in slot 1 and the other
+	// slots empty; --mouse-card is --slot4=mouse.
+	unsigned slot_card[4] = {1, 0, 0, 0};
+	const char *const card_names[] = {"empty", "block", "profile1", "profile2", "mouse"};
 	// --wp-trace: print each write-protect sense read ($C0EE) with the drive state.
 	bool wp_trace = false;
 	// --frame-out=PATH: after the run, write the next displayed frame as a
@@ -71,7 +74,7 @@ int main(int argc, char **argv) {
 	// --dump-mem=ADDR,LEN (hex): hex dump of system-bank memory ($0000-$1FFF or
 	// $A000-$FFFF) at the end of the run, for disassembling a loaded program.
 	unsigned dump_addr = 0, dump_len = 0;
-	bool mouse_card = false, mouse_trace = false, key_test = false, warm_reset = false, to_menu = false, disk_trace = false, trace_all = false;
+	bool mouse_trace = false, key_test = false, warm_reset = false, to_menu = false, disk_trace = false, trace_all = false;
 	bool plus_keymap = false;  // Apple /// Plus keyboard: separate DELETE key
 	bool ram_128k = false;     // 128 KiB memory board instead of 256 KiB
 	bool soshdboot = false;    // the built-in soshdboot ROM instead of Apple's
@@ -106,10 +109,14 @@ int main(int argc, char **argv) {
 			if (option.rfind("--drive" + std::to_string(drive + 1) + "=", 0) == 0) drive_path[drive] = option.substr(9);
 		if (option.rfind("--hd1=", 0) == 0) drive_path[4] = option.substr(6);
 		if (option.rfind("--hd2=", 0) == 0) drive_path[5] = option.substr(6);
-		if (option.rfind("--hd1-out=", 0) == 0) hd_out = option.substr(10);
-		if (option.rfind("--profile=", 0) == 0) drive_path[6] = option.substr(10);
-		if (option.rfind("--profile-out=", 0) == 0) profile_out = option.substr(14);
-		if (option.rfind("--profile-slot=", 0) == 0) profile_slot = std::strtoul(argv[i] + 15, nullptr, 10);
+		if (option.rfind("--hd1-out=", 0) == 0) hd_out[0] = option.substr(10);
+		if (option.rfind("--hd2-out=", 0) == 0) hd_out[1] = option.substr(10);
+		if (option.size() > 8 && option.rfind("--slot", 0) == 0 && option[6] >= '1' && option[6] <= '4' && option[7] == '=') {
+			unsigned card = 0;
+			while (card < 5 && option.substr(8) != card_names[card]) ++card;
+			if (card == 5) { std::fprintf(stderr, "FAIL: %s: cards are empty, block, profile1, profile2, mouse\n", argv[i]); return 1; }
+			slot_card[option[6] - '1'] = card;
+		}
 		if (option == "--block-boot") block_boot = true;
 		if (option == "--wp-trace") wp_trace = true;
 		if (option.rfind("--frame-out=", 0) == 0) frame_out = option.substr(12);
@@ -128,7 +135,7 @@ int main(int argc, char **argv) {
 		}
 		if (option == "--keytest") key_test = true;
 		if (option == "--plus-keymap") plus_keymap = true;
-		if (option == "--mouse-card") mouse_card = true;
+		if (option == "--mouse-card") slot_card[3] = 4;
 		if (option == "--mouse-trace") mouse_trace = true;
 		if (option == "--ram128k") ram_128k = true;
 		if (option == "--soshdboot") soshdboot = true;
@@ -153,8 +160,7 @@ int main(int argc, char **argv) {
 		if (option.rfind("--mount-delay=", 0) == 0) mount_delay = std::strtod(argv[i] + 14, nullptr);
 		if (option.rfind("--reset-delay=", 0) == 0) reset_delay = std::strtod(argv[i] + 14, nullptr);
 	}
-	if (profile_slot < 2 || profile_slot > 4) { std::fprintf(stderr, "FAIL: --profile-slot must be 2, 3 or 4\n"); return 1; }
-	for (unsigned drive = 0; drive < 7; ++drive) {
+	for (unsigned drive = 0; drive < 6; ++drive) {
 		if (!disk_test || drive_path[drive].empty()) continue;
 		const char *path = drive_path[drive].c_str();
 		std::ifstream input(path, std::ios::binary);
@@ -185,8 +191,7 @@ int main(int argc, char **argv) {
 	top.sd_buff_wr = 0;
 	top.ps2_key = 0;
 	top.ps2_mouse = 0;
-	top.mouse_card_installed = mouse_card;
-	top.profile_slot = disk_image[6].empty() ? 0 : profile_slot;
+	top.slot_cards = slot_card[0] | slot_card[1] << 3 | slot_card[2] << 6 | slot_card[3] << 9;
 	top.plus_keymap = plus_keymap;
 	top.ram_128k = ram_128k;
 	top.soshdboot = soshdboot;
@@ -253,7 +258,7 @@ int main(int argc, char **argv) {
 		const unsigned long long steps = static_cast<unsigned long long>(seconds * 2 * 14318181.0);
 		for (unsigned long long i = 0; i < steps; ++i) { prepare_storage(); top.clk ^= 1; top.eval(); finish_storage(); }
 	};
-	for (unsigned drive = 0; drive < 7; ++drive) {
+	for (unsigned drive = 0; drive < 6; ++drive) {
 		if (disk_image[drive].empty()) continue;
 		run_seconds(mount_delay);
 		top.image_size = disk_image[drive].size(); top.image_change = 1 << drive;
@@ -711,18 +716,14 @@ int main(int argc, char **argv) {
 		for (unsigned i = 0; i < dump_len; ++i) std::printf(" %02X", read_system_byte((dump_addr + i) & 0x7fff));
 		std::printf("\n");
 	}
-	if (!hd_out.empty() && !disk_image[4].empty()) {
-		std::ofstream output(hd_out, std::ios::binary);
-		output.write(reinterpret_cast<const char *>(disk_image[4].data()), disk_image[4].size());
-		std::printf("hard disk 1 saved to %s\n", hd_out.c_str());
+	for (unsigned disk = 0; disk < 2; ++disk) {
+		if (hd_out[disk].empty() || disk_image[4 + disk].empty()) continue;
+		std::ofstream output(hd_out[disk], std::ios::binary);
+		output.write(reinterpret_cast<const char *>(disk_image[4 + disk].data()), disk_image[4 + disk].size());
+		std::printf("hard disk %u saved to %s\n", disk + 1, hd_out[disk].c_str());
 	}
-	if (!profile_out.empty() && !disk_image[6].empty()) {
-		std::ofstream output(profile_out, std::ios::binary);
-		output.write(reinterpret_cast<const char *>(disk_image[6].data()), disk_image[6].size());
-		std::printf("ProFile image saved to %s\n", profile_out.c_str());
-	}
-	if (!disk_image[4].empty() || !disk_image[5].empty() || !disk_image[6].empty())
-		std::printf("block card and ProFile: %u host transfers\n", hd_transfers);
+	if (!disk_image[4].empty() || !disk_image[5].empty())
+		std::printf("hard disks: %u host transfers\n", hd_transfers);
 	if (disk_test)
 		std::printf("disk image=%s buffered=%u sd_reads=%u bootstrap_A000=%u boot_block_error=%u ext_fetch_ok=%u loader_return=%u "
 		            "loader_jump=%u interpreter=%u final_track=%u loader_io_error=%04X "

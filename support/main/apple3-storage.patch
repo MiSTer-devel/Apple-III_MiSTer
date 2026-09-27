@@ -13,10 +13,10 @@ index c47056b..936b85e 100644
  #include "support/mac/mac.h"
 diff --git a/support/apple3/README.md b/support/apple3/README.md
 new file mode 100644
-index 0000000..035da25
+index 0000000..8623b79
 --- /dev/null
 +++ b/support/apple3/README.md
-@@ -0,0 +1,25 @@
+@@ -0,0 +1,24 @@
 +# Apple /// disk support
 +
 +The Apple-III core takes WOZ bitstreams on its Disk III drives and raw ProDOS
@@ -28,7 +28,6 @@ index 0000000..035da25
 +|---|---|---|
 +| S0-S3 | Disk III drives 1-4 | WOZ, DSK, DO, PO, NIB, 2MG |
 +| S4-S5 | Block card drives 1-2 | PO, HDV, 2MG (DC42 read-only) |
-+| S6 | ProFile card | PO, HDV, 2MG (DC42 read-only) |
 +
 +Sector images are converted in memory to the track layout Apple's Disk III
 +formatter produces: synchronized tracks of 51,424 cells read at 3.875 us, so
@@ -44,7 +43,7 @@ index 0000000..035da25
 +place behind any 2MG header.
 diff --git a/support/apple3/apple3_disk.cpp b/support/apple3/apple3_disk.cpp
 new file mode 100644
-index 0000000..40dcd5e
+index 0000000..ff86b7e
 --- /dev/null
 +++ b/support/apple3/apple3_disk.cpp
 @@ -0,0 +1,349 @@
@@ -64,7 +63,7 @@ index 0000000..40dcd5e
 +#include "apple3_woz.h"
 +#include "apple3_disk.h"
 +
-+#define SLOTS        7   // S0-S3 Disk III drives, S4-S5 block card, S6 ProFile
++#define SLOTS        6   // S0-S3 Disk III drives, S4-S5 block card
 +#define FLOPPY_SLOTS 4
 +
 +static struct {
@@ -399,12 +398,11 @@ index 0000000..40dcd5e
 +}
 diff --git a/support/apple3/apple3_disk.h b/support/apple3/apple3_disk.h
 new file mode 100644
-index 0000000..a8b5dad
+index 0000000..841ebac
 --- /dev/null
 +++ b/support/apple3/apple3_disk.h
-@@ -0,0 +1,22 @@
-+// Apple /// core: Disk III drives on S0-S3, block-storage card on S4/S5,
-+// ProFile card on S6.
+@@ -0,0 +1,21 @@
++// Apple /// core: Disk III drives on S0-S3, block-storage card on S4/S5.
 +// Hooked from user_io.cpp like the Mac support code.
 +
 +#ifndef APPLE3_DISK_H

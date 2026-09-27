@@ -1,6 +1,6 @@
 # Mouse card
 
-Slot 4 holds Apple's **Apple II Mouse Interface** card (670-0030), driven by
+Slot 4 holds Apple's **Apple II Mouse Interface** card (670-0030) as shipped, driven by
 MiSTer's mouse. It is the card an Apple /// used: Apple never made a /// one,
 and its SOS mouse driver, "Apple /// RAT Driver, for Apple ][-//e Mouse Card"
 (rls 11/85), and ON THREE's Desktop Manager both run that card in a slot.
@@ -13,8 +13,9 @@ from whose tables these images come; they match MAME's `a2mouse` set.
 | `rtl/cards/apple3_mouse_eprom.hex` | firmware EPROM, 341-0270-C | 2048 | `0bcd1e8e` | `3a9d881a8a8d30f55b9719aceebbcf717f829d6f` |
 | `rtl/cards/apple3_mouse_mcu.hex` | 68705P3 program, 341-0269 | 2048 | `94067f16` | `3a2baa6648efe4456d3ec3721216e57c64f7acfc` |
 
-**Mouse Card** in the OSD is On by default; Off leaves the slot empty. Like a
-board change, it takes effect at the next reset. The left button is the mouse's
+**Slot 4** in the OSD is **Mouse Card** as shipped; any of the **Slot**
+options can hold it instead, or none ([choosing the cards](SLOTS.md#choosing-the-cards)).
+Like a board change, a new choice takes effect at the next reset. The left button is the mouse's
 one button.
 
 **Mouse Speed** is how much of the MiSTer mouse's movement the card's mouse
@@ -105,7 +106,7 @@ Desktop Manager.
   position (`$10`), and the deltas it reads add up to 60 exactly.
 - **MiSTer.** The same image reaches the Selector with the card
   ([screenshot](mouse/2026-09-21-selector-with-card.png)) and stops at the
-  banner with **Mouse Card** Off
+  banner with the card out (the option was then **Mouse Card** Off)
   ([screenshot](mouse/2026-09-21-selector-without-card.png)). Moving a real
   mouse there has not been tried from this desk.
 - **Draw ON ///, in simulation.** ON THREE's drawing program opens `.MOUSE`

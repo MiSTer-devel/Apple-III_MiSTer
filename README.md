@@ -26,7 +26,8 @@ usable one: most software tried so far runs well.
   soshdboot ROM ([details](docs/BLOCK_STORAGE.md))
 - Apple's ProFile interface card, for the stock `.PROFILE` driver and its
   pseudo-DMA ([details](docs/PROFILE.md))
-- Apple's mouse card in slot 4, driven by the MiSTer's mouse
+- Apple's mouse card, driven by the MiSTer's mouse
+- Your choice of card in each of the four slots ([details](docs/SLOTS.md))
 - The real keyboard's auto-repeat and Solid Apple speed-up
 - Two joysticks, each with its button and latching switch
 - Speaker and 6-bit DAC sound
@@ -51,8 +52,8 @@ has native Apple /// games as ready-to-mount disk images.
 4. Put disk images in `/media/fat/games/Apple-III/`, launch the core, and use
    **Mount Drive 1** to select a boot disk. **Mount Drive 2–4** are the three
    external Disk III drives. Each drive has its own **Write Protect** option.
-   **Mount Hard Disk 1** and **2** take ProDOS-order images for the block
-   card in slot 1, and **Mount ProFile** one for the ProFile card
+   **Mount Hard Disk 1** and **2** take ProDOS-order images for the
+   hard-disk cards in the slots (see **Slot 1** to **Slot 4** below).
 5. If SOS lists only two drives, use System Utilities → **System Configuration
    Program**: read your `SOS.DRIVER`, set **Change System Parameters → Number of
    Disk III Drives** to **4**, then **Generate New System** to save `SOS.DRIVER`
@@ -113,7 +114,7 @@ as Solid Apple while it is down.
 The OSD keeps the drives, their write protection, the hard disks, **Model**
 and **Video** at the top. **System & ROM** holds Memory, Video Standard and
 Boot ROM, **Scaling & Filters** the scaler and scanline options, and
-**Hardware** the mouse, joystick and serial ones.
+**Hardware** the slots, mouse, joystick and serial ones.
 
 **Model** in the OSD selects the Apple /// Plus. It adds that machine's one
 extra key, DELETE, on the host Delete key, and its **Text Interlace** switch:
@@ -123,9 +124,9 @@ a program selects page 2, as on the real machine. [Details](docs/INTERLACE.md).
 **Memory** in the OSD selects Apple's 256 KiB board or the earlier 128 KiB
 one. Like a board swap, it takes effect at the next reset.
 
-**Boot ROM** in the OSD selects Rob Justice's soshdboot ROM, which boots
-**Hard Disk 1** if an image is mounted there and the floppy if not. The image
-needs soshdboot's loader and kernel, as on
+**Boot ROM** in the OSD selects Rob Justice's soshdboot ROM, which boots the
+block card's **Hard Disk 1** if an image is mounted there and the floppy if
+not. The image needs soshdboot's loader and kernel, as on
 [his images](https://github.com/robjustice/soshdboot/tree/master/disks); with
 any other, choose **Apple**, or turn on Alpha Lock and press Ctrl + F2 to boot
 the floppy. It takes effect at the next reset. [Details](docs/BLOCK_STORAGE.md).
@@ -140,16 +141,14 @@ with its soft text and bleeding color. [Details](docs/VIDEO_SOURCES.md).
 **Video Standard** in the OSD selects NTSC or PAL: Apple's 50 Hz "Euro
 system", the same picture in a 310-line frame. [Details](docs/PAL.md).
 
-**ProFile Card** in the OSD puts Apple's ProFile interface card in slot 4,
-where the SOS 1.3 utilities' `.PROFILE` driver and Apple's manuals expect it
-and where it takes the mouse card's place, or in slot 3 or 2 for a driver
-configured to match. It serves the **Mount ProFile** image and takes effect at
-the next reset. [Details](docs/PROFILE.md).
-
-**Mouse Card** in the OSD is Apple's mouse card in slot 4, where SOS mouse
-drivers are usually configured to find it, and **Mouse Speed** sets how far
-the MiSTer's mouse moves it; Normal is close to Apple's mouse.
-[Details](docs/MOUSE.md).
+**Slot 1** to **Slot 4** in the OSD choose each slot's card, taking effect at
+the next reset. The **Block Card** serves both hard disks to the Problock3
+driver and the soshdboot ROM ([details](docs/BLOCK_STORAGE.md)). **ProFile
+HD1** and **HD2** are Apple's ProFile card on one hard disk, for Apple's own
+`.PROFILE` driver, which looks in slot 4 ([details](docs/PROFILE.md)). The
+**Mouse Card** is Apple's ([details](docs/MOUSE.md)). As shipped, slot 1 has
+the block card and slot 4 the mouse card. **Mouse Speed** sets how far the
+MiSTer's mouse moves the card's; Normal is close to Apple's mouse.
 
 **Aspect ratio** and **Scale** are MiSTer's usual ones: Original (4:3), Full
 Screen or the custom ratios of `MiSTer.ini`, and integer scaling.

@@ -43,6 +43,8 @@ rtl/apple3_disk.sv
 rtl/apple3_video.sv
 rtl/apple3_composite.sv
 rtl/apple3_slots.sv
+rtl/apple3_cards.sv
+rtl/apple3_sd_arbiter.sv
 rtl/apple3_slot_rom.sv
 rtl/cards/apple3_block_card.sv
 rtl/cards/mouse/pia6821.v

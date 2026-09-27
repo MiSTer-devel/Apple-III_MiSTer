@@ -19,12 +19,11 @@ hardware retains its own P6 controller and Disk III drive logic.
 | S1 | First external Disk III (.D2) | Native WOZ2, sector-image and NIB writes |
 | S2 | Second external Disk III (.D3) | Native WOZ2, sector-image and NIB writes |
 | S3 | Third external Disk III (.D4) | Native WOZ2, sector-image and NIB writes |
-| S4, S5 | Block card drives 1 and 2 (.PROFILE and .PB2 with Problock3) | Raw ProDOS-order blocks written in place; DC42 and locked 2MG read-only |
-| S6 | ProFile card (Apple's .PROFILE driver) | As S4 and S5 |
+| S4, S5 | Hard disks 1 and 2: the block card's drives (.PROFILE and .PB2 with Problock3) and the ProFile cards' | Raw ProDOS-order blocks written in place; DC42 and locked 2MG read-only |
 
-The FPGA exposes **S0 through S6**. S4 and S5 feed the
-[virtual block-storage card](BLOCK_STORAGE.md) in slot 1, S6 the
-[ProFile card](PROFILE.md). Older two-drive
+The FPGA exposes **S0 through S5**. S4 and S5 feed the hard-disk cards the
+OSD's slot options install: the [virtual block-storage card](BLOCK_STORAGE.md),
+in slot 1 as shipped, and the [ProFile cards](PROFILE.md). Older two-drive
 WOZ cores can use this Main build on S0/S1; four-drive cores require the
 matching Main build so S2/S3 are treated as floppies. The previous Main
 assigned its unused S2/S3 slots to block devices.

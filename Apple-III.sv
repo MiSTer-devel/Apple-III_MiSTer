@@ -35,7 +35,7 @@ module emu (
 	// 0         1         2         3          4         5         6
 	// 01234567890123456789012345678901 23456789012345678901234567890123
 	// 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-	// X  XXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+	// X  XXXXXXXXXXXXXXXXXXXX XXXXXX   XXXXXXXXXXXX
 	//
 	// Aspect ratio is status[122:121], where the Template keeps it.
 
@@ -54,7 +54,6 @@ module emu (
 		"-;",
 		"S4,PO HDV2MG,Mount Hard Disk 1;",
 		"S5,PO HDV2MG,Mount Hard Disk 2;",
-		"S6,PO HDV2MG,Mount ProFile;",
 		"-;",
 		"O8,Model,Apple ///,/// Plus;",
 		"h0OF,Text Interlace,Off,On;",
@@ -77,8 +76,10 @@ module emu (
 		"h2P2O[22],Deinterlacing,Weave,Bob;",
 		"P3,Hardware;",
 		"P3-;",
-		"P3O[31:30],ProFile Card,Off,Slot 4,Slot 3,Slot 2;",
-		"P3O[23],Mouse Card,On,Off;",
+		"P3O[34:32],Slot 1,Block Card,ProFile HD1,ProFile HD2,Mouse Card,Empty;",
+		"P3O[37:35],Slot 2,Empty,Block Card,ProFile HD1,ProFile HD2,Mouse Card;",
+		"P3O[40:38],Slot 3,Empty,Block Card,ProFile HD1,ProFile HD2,Mouse Card;",
+		"P3O[43:41],Slot 4,Mouse Card,Empty,Block Card,ProFile HD1,ProFile HD2;",
 		"P3O[25:24],Mouse Speed,Normal,Fast,Faster,Fastest;",
 		"P3-;",
 		"P3OA,Joystick 1 on,Port B,Port A;",
@@ -141,19 +142,18 @@ module emu (
 	wire [1:0] video_source = status[14:13];
 	wire       composite_source = (video_source == 2'd1) || (video_source == 2'd2);
 
-	// S0-S3 are the Disk III drives, S4 and S5 the block card's images and
-	// S6 the ProFile's.
-	wire [ 6:0] img_mounted;
+	// S0-S3 are the Disk III drives, S4 and S5 the hard disks.
+	wire [ 5:0] img_mounted;
 	wire        img_readonly;
 	wire [63:0] img_size;
-	wire [31:0] sd_lba       [7];
-	wire [ 5:0] sd_blk_cnt   [7];
-	wire [ 6:0] sd_rd;
-	wire [ 6:0] sd_wr;
-	wire [ 6:0] sd_ack;
+	wire [31:0] sd_lba       [6];
+	wire [ 5:0] sd_blk_cnt   [6];
+	wire [ 5:0] sd_rd;
+	wire [ 5:0] sd_wr;
+	wire [ 5:0] sd_ack;
 	wire [13:0] sd_buff_addr;
 	wire [ 7:0] sd_buff_dout;
-	wire [ 7:0] sd_buff_din  [7];
+	wire [ 7:0] sd_buff_din  [6];
 	wire        sd_buff_wr;
 
 	wire        ioctl_download;
@@ -169,7 +169,7 @@ module emu (
 	// (Ctrl+F2 = reset, F2 alone = NMI).
 	hps_io #(
 		.CONF_STR(CONF_STR),
-		.VDNUM   (7)
+		.VDNUM   (6)
 	) hps_io_inst (
 		.clk_sys           (clk_14m),
 		.HPS_BUS           (HPS_BUS),
@@ -317,128 +317,76 @@ module emu (
 		end
 	endgenerate
 
-	// Slot 1 holds the virtual block-storage card, a ProDOS block-mode
-	// device that SOS reaches through the Problock3 driver or the soshdboot
-	// ROM. Its two drives are the hard-disk images on S4 and S5. Slot 4 holds
-	// the Apple II Mouse Interface card, where SOS's mouse driver is usually
-	// configured to find it. Apple's ProFile Interface card, serving the S6
-	// image, goes in the slot the "ProFile Card" option names: slot 4, where
-	// Apple's software expects it and where it takes the mouse card's place,
-	// or an empty slot for a driver configured to match.
+	// "Slot 1" to "Slot 4" name the card in each slot (apple3_cards). Each
+	// list starts with the slot's card as the core ships, the block card in
+	// slot 1 and the mouse card in slot 4, and goes on in the order Empty,
+	// Block Card, ProFile HD1, ProFile HD2, Mouse Card, so the card's code is
+	// the value plus the shipped card's, modulo five.
+	function automatic [2:0] slot_card(input [2:0] value, input [2:0] shipped);
+		logic [3:0] sum;
+		sum       = value + shipped;
+		slot_card = (sum >= 4'd5) ? 3'(sum - 4'd5) : sum[2:0];
+	endfunction
+	wire [3:0][2:0] slot_cards = {
+		slot_card(status[43:41], 3'd4),
+		slot_card(status[40:38], 3'd0),
+		slot_card(status[37:35], 3'd0),
+		slot_card(status[34:32], 3'd1)
+	};
+
 	/* verilator lint_off UNUSEDSIGNAL */
-	wire [15:0] slot_addr;  // the cards decode the page offset only
+	wire [15:0]      slot_addr;  // the cards decode the page offset only
 	/* verilator lint_on UNUSEDSIGNAL */
-	wire [3:0] slot_device_select, slot_io_select;
+	wire [ 3:0][7:0] slot_data_in;
+	wire [3:0] slot_device_select, slot_io_select, slot_data_oe, slot_irq_n, slot_ready;
+	wire [3:0] slot_dma_req, slot_dma_write;
 	wire [7:0] slot_data_out;
 	wire slot_cpu_read, slot_cycle, slot_reset, slot_rom_deselect, slot_dma_ok;
-	wire [7:0] slot_dma_data;
-	wire [7:0] block_data;
-	wire block_oe, block_ready, block_activity;
-	wire [31:0] block_lba;
-	wire [1:0] block_rd, block_wr;
-	wire [7:0] block_din;
+	wire [7:0]       slot_dma_data;
+	wire             card_activity;
+	wire [1:0][31:0] hd_lba;
+	wire [1:0][ 7:0] hd_din;
 
-	apple3_block_card block_card (
+	apple3_cards cards (
 		.clk           (clk_14m),
 		.reset         (slot_reset),
 		.cycle         (slot_cycle),
+		.slot_card     (slot_cards),
 		.addr          (slot_addr[7:0]),
 		.cpu_read      (slot_cpu_read),
 		.data_in       (slot_data_out),
-		.device_select (slot_device_select[0]),
-		.io_select     (slot_io_select[0]),
-		.data_out      (block_data),
-		.data_oe       (block_oe),
-		.ready         (block_ready),
-		.activity      (block_activity),
+		.device_select (slot_device_select),
+		.io_select     (slot_io_select),
+		.rom_deselect  (slot_rom_deselect),
+		.dma_ok        (slot_dma_ok),
+		.dma_data      (slot_dma_data),
+		.data_out      (slot_data_in),
+		.data_oe       (slot_data_oe),
+		.irq_n         (slot_irq_n),
+		.ready         (slot_ready),
+		.dma_req       (slot_dma_req),
+		.dma_write     (slot_dma_write),
+		.activity      (card_activity),
+		.ps2_mouse     (ps2_mouse),
+		.mouse_speed   (status[25:24]),
 		.image_change  (img_mounted[5:4]),
 		.image_size    (img_size),
 		.image_readonly(img_readonly),
-		.sd_lba        (block_lba),
-		.sd_rd         (block_rd),
-		.sd_wr         (block_wr),
+		.sd_lba        (hd_lba),
+		.sd_rd         (sd_rd[5:4]),
+		.sd_wr         (sd_wr[5:4]),
 		.sd_ack        (sd_ack[5:4]),
 		.sd_buff_addr  (sd_buff_addr[8:0]),
 		.sd_buff_dout,
-		.sd_buff_din   (block_din),
+		.sd_buff_din   (hd_din),
 		.sd_buff_wr
 	);
-	// One request is outstanding at a time, so both images share the card's
-	// block number and buffer.
-	assign sd_lba[4]      = block_lba;
-	assign sd_lba[5]      = block_lba;
+	assign sd_lba[4]      = hd_lba[0];
+	assign sd_lba[5]      = hd_lba[1];
 	assign sd_blk_cnt[4]  = 6'd0;
 	assign sd_blk_cnt[5]  = 6'd0;
-	assign sd_rd[5:4]     = block_rd;
-	assign sd_wr[5:4]     = block_wr;
-	assign sd_buff_din[4] = block_din;
-	assign sd_buff_din[5] = block_din;
-
-	// Like any card, the ProFile and mouse cards go in or come out with the
-	// machine off: their options take effect at the next reset.
-	logic [1:0] profile_choice = 2'd0;  // 0 none, 1 slot 4, 2 slot 3, 3 slot 2
-	logic       mouse_installed = 1'b0;
-	always_ff @(posedge clk_14m) begin
-		if (slot_reset) begin
-			profile_choice  <= status[31:30];
-			mouse_installed <= !status[23] && (status[31:30] != 2'd1);
-		end
-	end
-	wire [3:0] profile_slot = (profile_choice == 2'd1) ? 4'b1000 :
-							  (profile_choice == 2'd2) ? 4'b0100 :
-							  (profile_choice == 2'd3) ? 4'b0010 : 4'b0000;
-	wire [7:0] profile_data;
-	wire profile_oe, profile_activity, profile_dma_req, profile_dma_write;
-
-	apple3_profile_card profile_card (
-		.clk           (clk_14m),
-		.reset         (slot_reset || (profile_choice == 2'd0)),
-		.cycle         (slot_cycle),
-		.addr          (slot_addr[3:0]),
-		.cpu_read      (slot_cpu_read),
-		.data_in       (slot_data_out),
-		.device_select (|(slot_device_select & profile_slot)),
-		.io_select     (|(slot_io_select & profile_slot)),
-		.rom_deselect  (slot_rom_deselect),
-		.data_out      (profile_data),
-		.data_oe       (profile_oe),
-		.activity      (profile_activity),
-		.dma_ok        (slot_dma_ok),
-		.dma_data      (slot_dma_data),
-		.dma_req       (profile_dma_req),
-		.dma_write     (profile_dma_write),
-		.image_change  (img_mounted[6]),
-		.image_size    (img_size),
-		.image_readonly(img_readonly),
-		.sd_lba        (sd_lba[6]),
-		.sd_rd         (sd_rd[6]),
-		.sd_wr         (sd_wr[6]),
-		.sd_ack        (sd_ack[6]),
-		.sd_buff_addr  (sd_buff_addr[8:0]),
-		.sd_buff_dout,
-		.sd_buff_din   (sd_buff_din[6]),
-		.sd_buff_wr
-	);
-	assign sd_blk_cnt[6] = 6'd0;
-
-	wire [7:0] mouse_data;
-	wire mouse_oe, mouse_irq_n;
-
-	apple3_mouse_card mouse_card (
-		.clk          (clk_14m),
-		.reset        (slot_reset || !mouse_installed),
-		.cycle        (slot_cycle),
-		.addr         (slot_addr[7:0]),
-		.cpu_read     (slot_cpu_read),
-		.data_in      (slot_data_out),
-		.device_select(slot_device_select[3]),
-		.io_select    (slot_io_select[3]),
-		.data_out     (mouse_data),
-		.data_oe      (mouse_oe),
-		.irq_n        (mouse_irq_n),
-		.ps2_mouse    (ps2_mouse),
-		.speed        (status[25:24])
-	);
+	assign sd_buff_din[4] = hd_din[0];
+	assign sd_buff_din[5] = hd_din[1];
 
 	apple3_core machine (
 		.clk_14m           (clk_14m),
@@ -476,11 +424,11 @@ module emu (
 		.joy_a_switch      (stick_switch[!port_b]),
 		.joy_b_button      (stick_button[port_b]),
 		.joy_b_switch      (stick_switch[port_b]),
-		.slot_data_in      ({profile_slot[3] ? profile_data : mouse_data, profile_data, profile_data, block_data}),
-		.slot_data_oe      ({profile_slot[3] ? profile_oe : mouse_oe, profile_slot[2:1] & {2{profile_oe}}, block_oe}),
-		.slot_irq_n        ({profile_slot[3] || mouse_irq_n, 3'b111}),
+		.slot_data_in      (slot_data_in),
+		.slot_data_oe      (slot_data_oe),
+		.slot_irq_n        (slot_irq_n),
 		.slot_nmi_n        (4'b1111),
-		.slot_ready        ({3'b111, block_ready}),
+		.slot_ready        (slot_ready),
 		.slot_addr         (slot_addr),
 		.slot_data_out     (slot_data_out),
 		.slot_cpu_read     (slot_cpu_read),
@@ -492,8 +440,8 @@ module emu (
 		.slot_rom_deselect (slot_rom_deselect),
 		.slot_bus_conflict (),
 		.slot_dma_ok       (slot_dma_ok),
-		.slot_dma_req      (profile_slot & {4{profile_dma_req}}),
-		.slot_dma_write    (profile_slot & {4{profile_dma_write}}),
+		.slot_dma_req      (slot_dma_req),
+		.slot_dma_write    (slot_dma_write),
 		.slot_dma_data     (slot_dma_data),
 		.rom_we            (rom_write),
 		.rom_host_addr     (ioctl_addr[12:0]),
@@ -572,7 +520,7 @@ module emu (
 	// is on, and it changes nothing on the analog output.
 	assign HDMI_BOB_DEINT = status[22];
 
-	assign LED_USER  = disk_activity || block_activity || profile_activity;
+	assign LED_USER  = disk_activity || card_activity;
 	assign AUDIO_L   = core_audio;
 	assign AUDIO_R   = core_audio;
 	assign AUDIO_S   = 1'b1;
