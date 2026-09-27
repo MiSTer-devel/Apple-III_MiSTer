@@ -1,6 +1,6 @@
 # Mouse card
 
-Slot 4 holds Apple's **Apple II Mouse Interface** card (670-0030) as shipped, driven by
+A slot can hold Apple's **Apple II Mouse Interface** card (670-0030), driven by
 MiSTer's mouse. It is the card an Apple /// used: Apple never made a /// one,
 and its SOS mouse driver, "Apple /// RAT Driver, for Apple ][-//e Mouse Card"
 (rls 11/85), and ON THREE's Desktop Manager both run that card in a slot.
@@ -13,13 +13,16 @@ from whose tables these images come; they match MAME's `a2mouse` set.
 | `rtl/cards/apple3_mouse_eprom.hex` | firmware EPROM, 341-0270-C | 2048 | `0bcd1e8e` | `3a9d881a8a8d30f55b9719aceebbcf717f829d6f` |
 | `rtl/cards/apple3_mouse_mcu.hex` | 68705P3 program, 341-0269 | 2048 | `94067f16` | `3a2baa6648efe4456d3ec3721216e57c64f7acfc` |
 
-**Slot 4** in the OSD is **Mouse Card** as shipped; any of the **Slot**
-options can hold it instead, or none ([choosing the cards](SLOTS.md#choosing-the-cards)).
-Like a board change, a new choice takes effect at the next reset. The left button is the mouse's
-one button.
+Choose **Mouse Card** for a slot in the OSD's **Slot** options
+([choosing the cards](SLOTS.md#choosing-the-cards)). Slot 4 is where Rob
+Justice's Desktop Manager image sets ON THREE's driver, and Apple's RAT driver
+takes the slot the System Configuration Program gives it. The card is not
+installed as shipped, since slot 4 holds the ProFile card. Like a board
+change, a new choice takes effect at the next reset. The left button is the
+mouse's one button.
 
-**Mouse Speed** is how much of the MiSTer mouse's movement the card's mouse
-makes: **Normal** an eighth, **Fast** a quarter, **Faster** a half, **Fastest**
+**Mouse Speed**, on the menu while a slot holds the card, is how much of the
+MiSTer mouse's movement the card's mouse makes: **Normal** an eighth, **Fast** a quarter, **Faster** a half, **Fastest**
 all of it. Apple's mouse gave about 90 counts to the inch and a present-day one
 gives ten times that, so Normal is near the original in the hand. Programs of
 the time count on it: ON THREE's driver keeps only three bits of each

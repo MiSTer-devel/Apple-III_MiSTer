@@ -3,17 +3,15 @@
 // The OSD names a card for each of the four slots (docs/SLOTS.md):
 //
 //   0 empty
-//   1 the block-storage card, serving both hard disks (Problock3, soshdboot)
-//   2 Apple's ProFile card on hard disk 1 (the stock .PROFILE driver)
-//   3 a second ProFile card, on hard disk 2
+//   1 the block-storage card, with Block Disks 1 and 2 (Problock3, soshdboot)
+//   2 Apple's ProFile card, with ProFile Disk 1 (the stock .PROFILE driver)
+//   3 a second ProFile card, with ProFile Disk 2
 //   4 the Apple II mouse card
 //
 // Like a board change on the machine, the choice takes effect at the next
 // slot reset. There is one of each card, so a card named for more than one
-// slot goes in the lowest of them and the others stay empty.
-//
-// A hard disk can have two cards on it, the block card and the ProFile card
-// for that disk; apple3_sd_arbiter lets Main see one of them at a time.
+// slot goes in the lowest of them and the others stay empty. Each disk
+// image belongs to one card.
 module apple3_cards (
 	input logic clk,
 	input logic reset,  // the slot reset, /IORESET
@@ -45,17 +43,18 @@ module apple3_cards (
 	input logic [24:0] ps2_mouse,
 	input logic [ 1:0] mouse_speed,
 
-	// Hard disks 1 and 2, Main's S4 and S5, hard disk 1 first.
-	input  logic [ 1:0]       image_change,
+	// The disk images, Main's S4 to S7: Block Disks 1 and 2, then ProFile
+	// Disks 1 and 2.
+	input  logic [ 3:0]       image_change,
 	input  logic [63:0]       image_size,
 	input  logic              image_readonly,
-	output logic [ 1:0][31:0] sd_lba,
-	output logic [ 1:0]       sd_rd,
-	output logic [ 1:0]       sd_wr,
-	input  logic [ 1:0]       sd_ack,
+	output logic [ 3:0][31:0] sd_lba,
+	output logic [ 3:0]       sd_rd,
+	output logic [ 3:0]       sd_wr,
+	input  logic [ 3:0]       sd_ack,
 	input  logic [ 8:0]       sd_buff_addr,
 	input  logic [ 7:0]       sd_buff_dout,
-	output logic [ 1:0][ 7:0] sd_buff_din,
+	output logic [ 3:0][ 7:0] sd_buff_din,
 	input  logic              sd_buff_wr
 );
 
@@ -78,14 +77,12 @@ module apple3_cards (
 	wire [3:0]      mouse_here = slot_of(installed, CARD_MOUSE);
 	wire [1:0][3:0] profile_here = {slot_of(installed, CARD_PROFILE_2), slot_of(installed, CARD_PROFILE_1)};
 
-	// Each card's side of the hard disks it can reach, and the acknowledges
-	// the arbiters below pass back to it.
+	// The block card asks for one drive at a time, so its two images share
+	// its block number and buffer.
 	wire [31:0] block_lba;
 	wire [ 7:0] block_din;
-	wire [1:0] block_rd, block_wr, block_ack;
-	wire [1:0][31:0] profile_lba;
-	wire [1:0][ 7:0] profile_din;
-	wire [1:0] profile_rd, profile_wr, profile_ack;
+	assign sd_lba[1:0]      = {block_lba, block_lba};
+	assign sd_buff_din[1:0] = {block_din, block_din};
 
 	wire [7:0] block_data;
 	wire block_oe, block_ready, block_activity;
@@ -103,13 +100,13 @@ module apple3_cards (
 		.data_oe      (block_oe),
 		.ready        (block_ready),
 		.activity     (block_activity),
-		.image_change,
+		.image_change (image_change[1:0]),
 		.image_size,
 		.image_readonly,
 		.sd_lba       (block_lba),
-		.sd_rd        (block_rd),
-		.sd_wr        (block_wr),
-		.sd_ack       (block_ack),
+		.sd_rd        (sd_rd[1:0]),
+		.sd_wr        (sd_wr[1:0]),
+		.sd_ack       (sd_ack[1:0]),
 		.sd_buff_addr,
 		.sd_buff_dout,
 		.sd_buff_din  (block_din),
@@ -140,16 +137,16 @@ module apple3_cards (
 				.dma_data,
 				.dma_req      (profile_dma_req[disk]),
 				.dma_write    (profile_dma_write[disk]),
-				.image_change (image_change[disk]),
+				.image_change (image_change[2+disk]),
 				.image_size,
 				.image_readonly,
-				.sd_lba       (profile_lba[disk]),
-				.sd_rd        (profile_rd[disk]),
-				.sd_wr        (profile_wr[disk]),
-				.sd_ack       (profile_ack[disk]),
+				.sd_lba       (sd_lba[2+disk]),
+				.sd_rd        (sd_rd[2+disk]),
+				.sd_wr        (sd_wr[2+disk]),
+				.sd_ack       (sd_ack[2+disk]),
 				.sd_buff_addr,
 				.sd_buff_dout,
-				.sd_buff_din  (profile_din[disk]),
+				.sd_buff_din  (sd_buff_din[2+disk]),
 				.sd_buff_wr
 			);
 		end
@@ -191,30 +188,5 @@ module apple3_cards (
 	endgenerate
 
 	assign activity = block_activity || (|profile_activity);
-
-	// Each hard disk's image is shared by the block card's drive and the
-	// ProFile card for that disk.
-	generate
-		for (disk = 0; disk < 2; disk++) begin : arbiters
-			apple3_sd_arbiter arbiter (
-				.clk,
-				.a_lba      (block_lba),
-				.a_rd       (block_rd[disk]),
-				.a_wr       (block_wr[disk]),
-				.a_buff_din (block_din),
-				.a_ack      (block_ack[disk]),
-				.b_lba      (profile_lba[disk]),
-				.b_rd       (profile_rd[disk]),
-				.b_wr       (profile_wr[disk]),
-				.b_buff_din (profile_din[disk]),
-				.b_ack      (profile_ack[disk]),
-				.sd_lba     (sd_lba[disk]),
-				.sd_rd      (sd_rd[disk]),
-				.sd_wr      (sd_wr[disk]),
-				.sd_buff_din(sd_buff_din[disk]),
-				.sd_ack     (sd_ack[disk])
-			);
-		end
-	endgenerate
 
 endmodule

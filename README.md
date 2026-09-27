@@ -52,8 +52,9 @@ has native Apple /// games as ready-to-mount disk images.
 4. Put disk images in `/media/fat/games/Apple-III/`, launch the core, and use
    **Mount Drive 1** to select a boot disk. **Mount Drive 2–4** are the three
    external Disk III drives. Each drive has its own **Write Protect** option.
-   **Mount Hard Disk 1** and **2** take ProDOS-order images for the
-   hard-disk cards in the slots (see **Slot 1** to **Slot 4** below).
+   **ProFile Disk 1** and **2** and **Block Disk 1** and **2** take
+   ProDOS-order images for the hard-disk cards, and each shows while a slot
+   holds its card (see **Slot 1** to **Slot 4** below).
 5. If SOS lists only two drives, use System Utilities → **System Configuration
    Program**: read your `SOS.DRIVER`, set **Change System Parameters → Number of
    Disk III Drives** to **4**, then **Generate New System** to save `SOS.DRIVER`
@@ -125,7 +126,7 @@ a program selects page 2, as on the real machine. [Details](docs/INTERLACE.md).
 one. Like a board swap, it takes effect at the next reset.
 
 **Boot ROM** in the OSD selects Rob Justice's soshdboot ROM, which boots the
-block card's **Hard Disk 1** if an image is mounted there and the floppy if
+block card's **Block Disk 1** if an image is mounted there and the floppy if
 not. The image needs soshdboot's loader and kernel, as on
 [his images](https://github.com/robjustice/soshdboot/tree/master/disks); with
 any other, choose **Apple**, or turn on Alpha Lock and press Ctrl + F2 to boot
@@ -142,13 +143,15 @@ with its soft text and bleeding color. [Details](docs/VIDEO_SOURCES.md).
 system", the same picture in a 310-line frame. [Details](docs/PAL.md).
 
 **Slot 1** to **Slot 4** in the OSD choose each slot's card, taking effect at
-the next reset. The **Block Card** serves both hard disks to the Problock3
-driver and the soshdboot ROM ([details](docs/BLOCK_STORAGE.md)). **ProFile
-HD1** and **HD2** are Apple's ProFile card on one hard disk, for Apple's own
-`.PROFILE` driver, which looks in slot 4 ([details](docs/PROFILE.md)). The
-**Mouse Card** is Apple's ([details](docs/MOUSE.md)). As shipped, slot 1 has
-the block card and slot 4 the mouse card. **Mouse Speed** sets how far the
-MiSTer's mouse moves the card's; Normal is close to Apple's mouse.
+the next reset. The **Block Card** serves **Block Disk 1** and **2** to the
+Problock3 driver and the soshdboot ROM ([details](docs/BLOCK_STORAGE.md)).
+**ProFile 1** and **2** are Apple's ProFile card with **ProFile Disk 1** or
+**2**, for Apple's own `.PROFILE` driver, which Apple's disks set to slot 4
+([details](docs/PROFILE.md)). The **Mouse Card** is Apple's
+([details](docs/MOUSE.md)). As shipped, slot 1 has the block card and slot 4
+the first ProFile card. **Mouse Speed**, shown while a slot holds the mouse
+card, sets how far the MiSTer's mouse moves the card's; Normal is close to
+Apple's mouse.
 
 **Aspect ratio** and **Scale** are MiSTer's usual ones: Original (4:3), Full
 Screen or the custom ratios of `MiSTer.ini`, and integer scaling.

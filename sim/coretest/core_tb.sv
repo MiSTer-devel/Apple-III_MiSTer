@@ -42,18 +42,19 @@ module core_tb #(
 	output logic       [15:0] probe_word,
 	input  logic       [ 9:0] probe_font_addr,
 	output logic       [ 7:0] probe_font,
-	// Images 0-3 are the Disk III drives, 4 and 5 hard disks 1 and 2.
-	input  logic       [ 5:0] image_change,
+	// Images 0-3 are the Disk III drives, 4 and 5 the block card's disks and
+	// 6 and 7 the ProFile cards'.
+	input  logic       [ 7:0] image_change,
 	input  logic       [63:0] image_size,
 	input  logic              image_readonly,
-	output wire        [31:0] sd_lba         [6],
-	output wire        [ 5:0] sd_blk_cnt     [6],
-	output wire        [ 5:0] sd_rd,
+	output wire        [31:0] sd_lba         [8],
+	output wire        [ 5:0] sd_blk_cnt     [8],
+	output wire        [ 7:0] sd_rd,
 	sd_wr,
-	input  logic       [ 5:0] sd_ack,
+	input  logic       [ 7:0] sd_ack,
 	input  logic       [13:0] sd_buff_addr,
 	input  logic       [ 7:0] sd_buff_dout,
-	output wire        [ 7:0] sd_buff_din    [6],
+	output wire        [ 7:0] sd_buff_din    [8],
 	input  logic              sd_buff_wr,
 	output wire               card_activity,
 	// Rendered picture for --frame-out.
@@ -172,8 +173,8 @@ module core_tb #(
 	wire [3:0] slot_dma_req, slot_dma_write;
 	wire [7:0] slot_data_out, slot_dma_data;
 	wire slot_cpu_read, slot_cycle, slot_reset, slot_rom_deselect, slot_dma_ok;
-	wire [1:0][31:0] hd_lba;
-	wire [1:0][ 7:0] hd_din;
+	wire [3:0][31:0] hd_lba;
+	wire [3:0][ 7:0] hd_din;
 	apple3_cards cards (
 		.clk,
 		.reset        (slot_reset),
@@ -196,24 +197,23 @@ module core_tb #(
 		.activity     (card_activity),
 		.ps2_mouse,
 		.mouse_speed  (2'd3),
-		.image_change (image_change[5:4]),
+		.image_change (image_change[7:4]),
 		.image_size,
 		.image_readonly,
 		.sd_lba       (hd_lba),
-		.sd_rd        (sd_rd[5:4]),
-		.sd_wr        (sd_wr[5:4]),
-		.sd_ack       (sd_ack[5:4]),
+		.sd_rd        (sd_rd[7:4]),
+		.sd_wr        (sd_wr[7:4]),
+		.sd_ack       (sd_ack[7:4]),
 		.sd_buff_addr (sd_buff_addr[8:0]),
 		.sd_buff_dout,
 		.sd_buff_din  (hd_din),
 		.sd_buff_wr
 	);
-	assign sd_lba[4]      = hd_lba[0];
-	assign sd_lba[5]      = hd_lba[1];
-	assign sd_blk_cnt[4]  = 6'd0;
-	assign sd_blk_cnt[5]  = 6'd0;
-	assign sd_buff_din[4] = hd_din[0];
-	assign sd_buff_din[5] = hd_din[1];
+	for (genvar i = 4; i < 8; i++) begin : hard_disks
+		assign sd_lba[i]      = hd_lba[i-4];
+		assign sd_blk_cnt[i]  = 6'd0;
+		assign sd_buff_din[i] = hd_din[i-4];
+	end
 
 	apple3_core #(
 		.ROM_INIT_FILE (ROM_FILE),

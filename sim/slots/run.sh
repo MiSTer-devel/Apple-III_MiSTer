@@ -31,7 +31,7 @@ fi
 if ! verilator --binary --timing -j 4 --top-module cards_tb \
   -Wno-fatal -Wno-WIDTH -Wno-UNUSED -Wno-DECLFILENAME -Wno-TIMESCALEMOD \
   +incdir+rtl/cards/mouse/jt6805 --Mdir "$out/cards" \
-  rtl/apple3_cards.sv rtl/apple3_sd_arbiter.sv rtl/apple3_slot_rom.sv rtl/cards/apple3_block_card.sv rtl/cards/apple3_profile_card.sv \
+  rtl/apple3_cards.sv rtl/apple3_slot_rom.sv rtl/cards/apple3_block_card.sv rtl/cards/apple3_profile_card.sv \
   rtl/cards/mouse/pia6821.v rtl/cards/mouse/jt6805/jt6805_alu.v rtl/cards/mouse/jt6805/jt6805_ctrl.v \
   rtl/cards/mouse/jt6805/jt6805_regs.v rtl/cards/mouse/jt6805/jt6805.v \
   rtl/cards/mouse/jt6805/jtframe_6805mcu.v rtl/cards/apple3_mouse_card.sv \

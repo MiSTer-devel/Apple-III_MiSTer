@@ -259,10 +259,12 @@ reset, memory sizing, reconfiguration and the disk bootstrap happen. With a WOZ
 image it follows SOS to the interpreter through the real track cache.
 `--drive2=blank.woz`, `--drive3=blank.woz` and `--drive4=blank.woz`
 mount the three external drives on the shared transfer bus, and
-`--hd1=hard.po`/`--hd2=hard.po` mount the hard disks and `--hd1-out=`/`--hd2-out=`
-save them after the run. `--slot1=` to `--slot4=` choose each slot's card as the
-OSD's **Slot** options do: `block`, `profile1`, `profile2`, `mouse` or `empty`,
-with the block card in slot 1 and the rest empty unless told otherwise
+`--hd1=hard.po`/`--hd2=hard.po` mount the block card's disks and
+`--profile1=`/`--profile2=` the ProFile cards', and `--hd1-out=`, `--hd2-out=`,
+`--profile1-out=` and `--profile2-out=` save them after the run. `--slot1=` to
+`--slot4=` choose each slot's card as the OSD's **Slot** options do: `block`,
+`profile1`, `profile2`, `mouse` or `empty`, with the block card in slot 1 and
+the rest empty unless told otherwise
 ([block storage tests](../sim/blockdev/README.md),
 [ProFile tests](../sim/profile/README.md)); `--soshdboot` sets
 **Boot ROM** to soshdboot, and `--alpha-lock` turns Alpha Lock on as the

@@ -52,8 +52,10 @@ module emu (
 		"OB,Write Protect 3,Off,On;",
 		"OC,Write Protect 4,Off,On;",
 		"-;",
-		"S4,PO HDV2MG,Mount Hard Disk 1;",
-		"S5,PO HDV2MG,Mount Hard Disk 2;",
+		"h5S6,PO HDV2MG,ProFile Disk 1;",
+		"h6S7,PO HDV2MG,ProFile Disk 2;",
+		"h4S4,PO HDV2MG,Block Disk 1;",
+		"h4S5,PO HDV2MG,Block Disk 2;",
 		"-;",
 		"O8,Model,Apple ///,/// Plus;",
 		"h0OF,Text Interlace,Off,On;",
@@ -76,11 +78,11 @@ module emu (
 		"h2P2O[22],Deinterlacing,Weave,Bob;",
 		"P3,Hardware;",
 		"P3-;",
-		"P3O[34:32],Slot 1,Block Card,ProFile HD1,ProFile HD2,Mouse Card,Empty;",
-		"P3O[37:35],Slot 2,Empty,Block Card,ProFile HD1,ProFile HD2,Mouse Card;",
-		"P3O[40:38],Slot 3,Empty,Block Card,ProFile HD1,ProFile HD2,Mouse Card;",
-		"P3O[43:41],Slot 4,Mouse Card,Empty,Block Card,ProFile HD1,ProFile HD2;",
-		"P3O[25:24],Mouse Speed,Normal,Fast,Faster,Fastest;",
+		"P3O[34:32],Slot 1,Block Card,ProFile 1,ProFile 2,Mouse Card,Empty;",
+		"P3O[37:35],Slot 2,Empty,Block Card,ProFile 1,ProFile 2,Mouse Card;",
+		"P3O[40:38],Slot 3,Empty,Block Card,ProFile 1,ProFile 2,Mouse Card;",
+		"P3O[43:41],Slot 4,ProFile 1,ProFile 2,Mouse Card,Empty,Block Card;",
+		"h3P3O[25:24],Mouse Speed,Normal,Fast,Faster,Fastest;",
 		"P3-;",
 		"P3OA,Joystick 1 on,Port B,Port A;",
 		"P3O9,Serial CTS,Always ready,Host RTS;",
@@ -142,19 +144,22 @@ module emu (
 	wire [1:0] video_source = status[14:13];
 	wire       composite_source = (video_source == 2'd1) || (video_source == 2'd2);
 
-	// S0-S3 are the Disk III drives, S4 and S5 the hard disks.
-	wire [ 5:0] img_mounted;
+	// S0-S3 are the Disk III drives, S4 and S5 the block card's disks and S6
+	// and S7 the ProFile cards'.
+	wire [ 7:0] img_mounted;
 	wire        img_readonly;
 	wire [63:0] img_size;
-	wire [31:0] sd_lba       [6];
-	wire [ 5:0] sd_blk_cnt   [6];
-	wire [ 5:0] sd_rd;
-	wire [ 5:0] sd_wr;
-	wire [ 5:0] sd_ack;
+	wire [31:0] sd_lba       [8];
+	wire [ 5:0] sd_blk_cnt   [8];
+	wire [ 7:0] sd_rd;
+	wire [ 7:0] sd_wr;
+	wire [ 7:0] sd_ack;
 	wire [13:0] sd_buff_addr;
 	wire [ 7:0] sd_buff_dout;
-	wire [ 7:0] sd_buff_din  [6];
+	wire [ 7:0] sd_buff_din  [8];
 	wire        sd_buff_wr;
+
+	wire mouse_chosen, block_chosen, profile_1_chosen, profile_2_chosen;
 
 	wire        ioctl_download;
 	wire [15:0] ioctl_index;
@@ -169,22 +174,31 @@ module emu (
 	// (Ctrl+F2 = reset, F2 alone = NMI).
 	hps_io #(
 		.CONF_STR(CONF_STR),
-		.VDNUM   (6)
+		.VDNUM   (8)
 	) hps_io_inst (
-		.clk_sys           (clk_14m),
-		.HPS_BUS           (HPS_BUS),
-		.buttons           (hps_buttons),
+		.clk_sys(clk_14m),
+		.HPS_BUS(HPS_BUS),
+		.buttons(hps_buttons),
 		.forced_scandoubler(forced_scandoubler),
-		.video_rotated     (1'b0),
+		.video_rotated(1'b0),
 		// The picture's size is the same at 50 Hz; only the frame time moves.
-		.new_vmode         (euro),
-		.gamma_bus         (gamma_bus),
-		.status            (status),
-		.status_in         (status),
-		.status_set        (1'b0),
-		.status_menumask   ({13'd0, interlace, !composite_source, plus_model && !euro}),
-		.info_req          (1'b0),
-		.info              (8'd0),
+		.new_vmode(euro),
+		.gamma_bus(gamma_bus),
+		.status(status),
+		.status_in(status),
+		.status_set(1'b0),
+		.status_menumask({
+			9'd0,
+			profile_2_chosen,
+			profile_1_chosen,
+			block_chosen,
+			mouse_chosen,
+			interlace,
+			!composite_source,
+			plus_model && !euro
+		}),
+		.info_req(1'b0),
+		.info(8'd0),
 
 		.joystick_0         (joystick_0),
 		.joystick_1         (joystick_1),
@@ -319,20 +333,30 @@ module emu (
 
 	// "Slot 1" to "Slot 4" name the card in each slot (apple3_cards). Each
 	// list starts with the slot's card as the core ships, the block card in
-	// slot 1 and the mouse card in slot 4, and goes on in the order Empty,
-	// Block Card, ProFile HD1, ProFile HD2, Mouse Card, so the card's code is
-	// the value plus the shipped card's, modulo five.
+	// slot 1 and the ProFile card for hard disk 1 in slot 4, where Apple's
+	// disks set its driver, and goes on in the order Empty, Block Card,
+	// ProFile HD1, ProFile HD2, Mouse Card, so the card's code is the value
+	// plus the shipped card's, modulo five.
 	function automatic [2:0] slot_card(input [2:0] value, input [2:0] shipped);
 		logic [3:0] sum;
 		sum       = value + shipped;
 		slot_card = (sum >= 4'd5) ? 3'(sum - 4'd5) : sum[2:0];
 	endfunction
 	wire [3:0][2:0] slot_cards = {
-		slot_card(status[43:41], 3'd4),
+		slot_card(status[43:41], 3'd2),
 		slot_card(status[40:38], 3'd0),
 		slot_card(status[37:35], 3'd0),
 		slot_card(status[34:32], 3'd1)
 	};
+	// A card's disks, or Mouse Speed, are on the menu while a slot names
+	// the card.
+	function automatic chosen(input [3:0][2:0] cards, input [2:0] card);
+		chosen = (cards[0] == card) || (cards[1] == card) || (cards[2] == card) || (cards[3] == card);
+	endfunction
+	assign block_chosen     = chosen(slot_cards, 3'd1);
+	assign profile_1_chosen = chosen(slot_cards, 3'd2);
+	assign profile_2_chosen = chosen(slot_cards, 3'd3);
+	assign mouse_chosen     = chosen(slot_cards, 3'd4);
 
 	/* verilator lint_off UNUSEDSIGNAL */
 	wire [15:0]      slot_addr;  // the cards decode the page offset only
@@ -344,8 +368,8 @@ module emu (
 	wire slot_cpu_read, slot_cycle, slot_reset, slot_rom_deselect, slot_dma_ok;
 	wire [7:0]       slot_dma_data;
 	wire             card_activity;
-	wire [1:0][31:0] hd_lba;
-	wire [1:0][ 7:0] hd_din;
+	wire [3:0][31:0] hd_lba;
+	wire [3:0][ 7:0] hd_din;
 
 	apple3_cards cards (
 		.clk           (clk_14m),
@@ -369,24 +393,25 @@ module emu (
 		.activity      (card_activity),
 		.ps2_mouse     (ps2_mouse),
 		.mouse_speed   (status[25:24]),
-		.image_change  (img_mounted[5:4]),
+		.image_change  (img_mounted[7:4]),
 		.image_size    (img_size),
 		.image_readonly(img_readonly),
 		.sd_lba        (hd_lba),
-		.sd_rd         (sd_rd[5:4]),
-		.sd_wr         (sd_wr[5:4]),
-		.sd_ack        (sd_ack[5:4]),
+		.sd_rd         (sd_rd[7:4]),
+		.sd_wr         (sd_wr[7:4]),
+		.sd_ack        (sd_ack[7:4]),
 		.sd_buff_addr  (sd_buff_addr[8:0]),
 		.sd_buff_dout,
 		.sd_buff_din   (hd_din),
 		.sd_buff_wr
 	);
-	assign sd_lba[4]      = hd_lba[0];
-	assign sd_lba[5]      = hd_lba[1];
-	assign sd_blk_cnt[4]  = 6'd0;
-	assign sd_blk_cnt[5]  = 6'd0;
-	assign sd_buff_din[4] = hd_din[0];
-	assign sd_buff_din[5] = hd_din[1];
+	generate
+		for (drive = 4; drive < 8; drive = drive + 1) begin : hard_disks
+			assign sd_lba[drive]      = hd_lba[drive-4];
+			assign sd_blk_cnt[drive]  = 6'd0;
+			assign sd_buff_din[drive] = hd_din[drive-4];
+		end
+	endgenerate
 
 	apple3_core machine (
 		.clk_14m           (clk_14m),

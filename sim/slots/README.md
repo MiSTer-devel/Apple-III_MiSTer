@@ -15,9 +15,8 @@ NMI masking or CPU-mode behavior fails. The bench also injects actual PS/2
 Reset and Control-Reset events to verify card reset and retained state.
 
 `cards_tb.sv` runs `rtl/apple3_cards.sv` with the real cards: each card in
-each slot, both ProFile cards at once, a card chosen for two slots, invalid
-codes and a choice made without a reset; then `apple3_sd_arbiter` with two
-requesting cards and a host.
+each slot, both ProFile cards at once with their own disks, a card chosen for
+two slots, invalid codes and a choice made without a reset.
 
 The synthetic cards are test fixtures, not installed peripherals. See
 [the card interface](../../docs/SLOTS.md) for the connection contract and

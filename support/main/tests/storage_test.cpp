@@ -390,12 +390,17 @@ int main(int argc,char **argv) {
   can_write=false; assert(mount_serve(f,block,"readonly.hdv",5)==block); before=bytes(f); write(5,f,0); assert(bytes(f)==before);
   can_write=true; source(f,block); f.zip=reinterpret_cast<fileZipArchive*>(1);
   assert(mount(5,"zipped.po",f,writable) && !writable); f.zip=nullptr;
+  // Slots 6 and 7, the ProFile cards' disks, are served as 4 and 5 are.
+  assert(mount_serve(f,bm,"profile.2mg",6,true)==block);
+  from_fpga.assign(512,0x3c); before=bytes(f); write(6,f,2);
+  { auto want=before; std::fill(want.begin()+128+1024,want.begin()+128+1536,0x3c); assert(bytes(f)==want); }
+  assert(mount_serve(f,block,"profile.po",7,true)==block);
   source(f,w); assert(!mount(4,"floppy.woz",f,writable));
   source(f,block); assert(!mount(0,"hard.hdv",f,writable));
   source(f,dsk); assert(!mount(4,"disk.dsk",f,writable));
   source(f,bm); bm[12]=3; source(f,bm); assert(!mount(4,"bad.2mg",f,writable));
-  // Slots 6 and up, and every slot under another core, are left to the generic path.
-  source(f,block); assert(mount(6,"other.hdv",f,writable)); assert(apple3_sd_service(6,&f,1,0,512,0)==0);
+  // Slots 8 and up, and every slot under another core, are left to the generic path.
+  source(f,block); assert(mount(8,"other.hdv",f,writable)); assert(apple3_sd_service(8,&f,1,0,512,0)==0);
   core="Apple-II"; source(f,dsk); assert(mount(0,"disk.dsk",f,writable)); assert(apple3_sd_service(0,&f,1,0,512,0)==0);
   // The //e and IIgs paths in support/a2 are unchanged upstream code.
   assert(iigs_mount(2,"disk.dsk",&f,&writable)==IIGS_HANDLED && writable);

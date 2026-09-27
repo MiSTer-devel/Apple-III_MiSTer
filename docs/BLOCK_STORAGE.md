@@ -12,8 +12,9 @@ $C800 expansion ROM.
 
 ## Using it
 
-1. Put a ProDOS-order image in `games/Apple-III/` and choose it with **Mount
-   Hard Disk 1** or **Mount Hard Disk 2**. PO, HDV and ProDOS-order 2MG are
+1. Put a ProDOS-order image in `games/Apple-III/` and choose it with **Block
+   Disk 1** or **Block Disk 2**, which the OSD shows while a slot holds the
+   block card. PO, HDV and ProDOS-order 2MG are
    accepted; the length must be a multiple of 512 bytes. Images are written
    in place, so keep a copy. A file that is read-only on the SD card, a
    write-protected 2MG, a DC42 container or a zip member is read-only.
@@ -27,8 +28,8 @@ $C800 expansion ROM.
    AppleCommander, as in the [test notes](../sim/blockdev/README.md), or
    through the System Configuration Program from a driver file. The SOS 1.3
    utilities disk ships a `.PROFILE` driver for Apple's ProFile card; the
-   Problock3 driver replaces it. To keep Apple's driver instead, put the
-   [ProFile card](PROFILE.md) in slot 4 for the same hard disk.
+   Problock3 driver replaces it. To keep Apple's driver instead, use the
+   [ProFile card](PROFILE.md) in slot 4 with its own **ProFile Disk 1**.
 3. To boot from the card, set **Boot ROM** to **soshdboot**, mount an image
    that carries its two-block loader and modified `SOS.KERNEL`, such as the
    [ready-made images](https://github.com/robjustice/soshdboot/tree/master/disks)
@@ -56,7 +57,7 @@ images it also takes soshdboot's loader, `SOS.KERNEL`, `SOS.DRIVER` and the
 program that image boots:
 
 ```sh
-tools/blank_hd.py data.po                                       # empty, for Hard Disk 2
+tools/blank_hd.py data.po                                       # empty, for Block Disk 2
 tools/blank_hd.py selector.po --boot-from sos_selector_hd.po    # boots the Selector
 ```
 
@@ -203,7 +204,7 @@ Results are in the [results sections](#results-2026-09-18) below.
 - Quartus 17.0.2: 0 errors, 42 warnings; worst setup slack 0.772 ns, hold
   0.206 ns; 19,735 ALMs (47%) and 489 M10K blocks (88%).
 - MiSTer with the paired Main: the same utilities floppy boots with the image
-  on **Mount Hard Disk 1** and [lists `/SOS`](blockdev/2026-09-18-utilities-list-profile.png);
+  on **Mount Hard Disk 1** (now **Block Disk 1**) and [lists `/SOS`](blockdev/2026-09-18-utilities-list-profile.png);
   [creating `/SOS/HWTEST`](blockdev/2026-09-18-utilities-mkdir.png) changed
   blocks 2, 4, 8 and 10846 of the image on the SD card, the same four blocks as
   in simulation, and the copy pulled from the card lists the new directory.
@@ -233,7 +234,8 @@ Results are in the [results sections](#results-2026-09-18) below.
   screen with the MGL's timing (`--mount-delay=8 --reset-delay=3`), as on the
   MiSTer. With `--alpha-lock` the ROM skips the card and the utilities boot.
 - MiSTer, 2026-09-23, with Apple's ROM still in `games/Apple-III/boot.rom`:
-  **Boot ROM** soshdboot and `sos_selector_hd.po` on **Hard Disk 1** with no
+  **Boot ROM** soshdboot and `sos_selector_hd.po` on **Hard Disk 1** (now
+  **Block Disk 1**) with no
   floppy boots to the Selector /// menu; the utilities floppy with **Hard
   Disk 1** empty boots to the Utilities menu; the floppy with the data volume
   and Apple's boot block stops at a black screen, and Caps Lock then

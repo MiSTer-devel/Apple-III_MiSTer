@@ -34,20 +34,22 @@ struct DiskReadEntry {
 int main(int argc, char **argv) {
 	Verilated::commandArgs(argc, argv);
 	Vcore_tb top;
-	// Images 0-3 are the floppy drives, 4 and 5 hard disks 1 and 2.
-	std::vector<uint8_t> disk_image[6];
-	std::string drive_path[6];
+	// Images 0-3 are the floppy drives, 4 and 5 the block card's disks
+	// (--hd1, --hd2) and 6 and 7 the ProFile cards' (--profile1, --profile2).
+	std::vector<uint8_t> disk_image[8];
+	std::string drive_path[8];
 	// A "-" in place of the drive 1 image boots with no floppy mounted.
 	if (argc > 2 && std::string(argv[2]) != "-") drive_path[0] = argv[2];
 	const bool disk_test = argc > 2;
 	// --block-boot: the boot ROM loads block 0 from the card (soshdboot), so
 	// the stock ROM's diagnostic and floppy milestones do not apply.
 	bool block_boot = false;
-	// --hd1-out=PATH, --hd2-out=PATH: save a hard disk after the run for
-	// host-side checks.
-	std::string hd_out[2];
-	// --slotN=CARD puts empty, block, profile1 (the ProFile card on hard
-	// disk 1), profile2 or mouse in slot N, as the OSD's Slot options do; the
+	// --hd1-out=, --hd2-out=, --profile1-out= and --profile2-out=PATH save
+	// that disk after the run for host-side checks.
+	std::string hd_out[4];
+	const char *const disk_names[] = {"hd1", "hd2", "profile1", "profile2"};
+	// --slotN=CARD puts empty, block, profile1 (the ProFile card with
+	// --profile1's disk), profile2 or mouse in slot N, as the OSD's Slot options do; the
 	// codes are apple3_cards'. The block card starts in slot 1 and the other
 	// slots empty; --mouse-card is --slot4=mouse.
 	unsigned slot_card[4] = {1, 0, 0, 0};
@@ -107,10 +109,11 @@ int main(int argc, char **argv) {
 		if (option.rfind("--sd-delay=", 0) == 0) sd_delay = std::strtoul(argv[i] + 11, nullptr, 10);
 		for (unsigned drive = 1; drive < 4; ++drive)
 			if (option.rfind("--drive" + std::to_string(drive + 1) + "=", 0) == 0) drive_path[drive] = option.substr(9);
-		if (option.rfind("--hd1=", 0) == 0) drive_path[4] = option.substr(6);
-		if (option.rfind("--hd2=", 0) == 0) drive_path[5] = option.substr(6);
-		if (option.rfind("--hd1-out=", 0) == 0) hd_out[0] = option.substr(10);
-		if (option.rfind("--hd2-out=", 0) == 0) hd_out[1] = option.substr(10);
+		for (unsigned disk = 0; disk < 4; ++disk) {
+			const std::string name = std::string("--") + disk_names[disk];
+			if (option.rfind(name + "=", 0) == 0) drive_path[4 + disk] = option.substr(name.size() + 1);
+			if (option.rfind(name + "-out=", 0) == 0) hd_out[disk] = option.substr(name.size() + 5);
+		}
 		if (option.size() > 8 && option.rfind("--slot", 0) == 0 && option[6] >= '1' && option[6] <= '4' && option[7] == '=') {
 			unsigned card = 0;
 			while (card < 5 && option.substr(8) != card_names[card]) ++card;
@@ -160,7 +163,7 @@ int main(int argc, char **argv) {
 		if (option.rfind("--mount-delay=", 0) == 0) mount_delay = std::strtod(argv[i] + 14, nullptr);
 		if (option.rfind("--reset-delay=", 0) == 0) reset_delay = std::strtod(argv[i] + 14, nullptr);
 	}
-	for (unsigned drive = 0; drive < 6; ++drive) {
+	for (unsigned drive = 0; drive < 8; ++drive) {
 		if (!disk_test || drive_path[drive].empty()) continue;
 		const char *path = drive_path[drive].c_str();
 		std::ifstream input(path, std::ios::binary);
@@ -258,7 +261,7 @@ int main(int argc, char **argv) {
 		const unsigned long long steps = static_cast<unsigned long long>(seconds * 2 * 14318181.0);
 		for (unsigned long long i = 0; i < steps; ++i) { prepare_storage(); top.clk ^= 1; top.eval(); finish_storage(); }
 	};
-	for (unsigned drive = 0; drive < 6; ++drive) {
+	for (unsigned drive = 0; drive < 8; ++drive) {
 		if (disk_image[drive].empty()) continue;
 		run_seconds(mount_delay);
 		top.image_size = disk_image[drive].size(); top.image_change = 1 << drive;
@@ -716,13 +719,13 @@ int main(int argc, char **argv) {
 		for (unsigned i = 0; i < dump_len; ++i) std::printf(" %02X", read_system_byte((dump_addr + i) & 0x7fff));
 		std::printf("\n");
 	}
-	for (unsigned disk = 0; disk < 2; ++disk) {
+	for (unsigned disk = 0; disk < 4; ++disk) {
 		if (hd_out[disk].empty() || disk_image[4 + disk].empty()) continue;
 		std::ofstream output(hd_out[disk], std::ios::binary);
 		output.write(reinterpret_cast<const char *>(disk_image[4 + disk].data()), disk_image[4 + disk].size());
-		std::printf("hard disk %u saved to %s\n", disk + 1, hd_out[disk].c_str());
+		std::printf("%s saved to %s\n", disk_names[disk], hd_out[disk].c_str());
 	}
-	if (!disk_image[4].empty() || !disk_image[5].empty())
+	if (!disk_image[4].empty() || !disk_image[5].empty() || !disk_image[6].empty() || !disk_image[7].empty())
 		std::printf("hard disks: %u host transfers\n", hd_transfers);
 	if (disk_test)
 		std::printf("disk image=%s buffered=%u sd_reads=%u bootstrap_A000=%u boot_block_error=%u ext_fetch_ok=%u loader_return=%u "

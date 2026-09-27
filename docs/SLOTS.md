@@ -9,28 +9,29 @@ interrupt wiring. Main needs no change for this interface.
 **Slot 1** to **Slot 4** in the OSD's Hardware page choose each slot's card,
 and like a board change the choice takes effect at the next reset:
 
-| Choice | Card | Images |
+| Choice | Card | Disks (Main's images) |
 |---|---|---|
-| Block Card | the [block-storage card](BLOCK_STORAGE.md), for Problock3 and soshdboot | Hard Disks 1 and 2 |
-| ProFile HD1 | Apple's [ProFile card](PROFILE.md), for Apple's `.PROFILE` driver | Hard Disk 1 |
-| ProFile HD2 | a second ProFile card | Hard Disk 2 |
+| Block Card | the [block-storage card](BLOCK_STORAGE.md), for Problock3 and soshdboot | Block Disk 1 and 2 (S4, S5) |
+| ProFile 1 | Apple's [ProFile card](PROFILE.md), for Apple's `.PROFILE` driver | ProFile Disk 1 (S6) |
+| ProFile 2 | a second ProFile card | ProFile Disk 2 (S7) |
 | Mouse Card | Apple's [mouse card](MOUSE.md) | |
 | Empty | nothing | |
 
-As shipped, slot 1 has the block card, slot 4 the mouse card and slots 2 and
-3 are empty; each slot's list starts with that choice. The Problock3 driver
+As shipped, slot 1 has the block card, slot 4 the first ProFile card and
+slots 2 and 3 are empty; each slot's list starts with that choice. A card's
+disks, and **Mouse Speed** for the mouse card, are on the menu only while a
+slot option names the card. An MGL that mounts a disk whose card is not in a
+slot stops there, since Main finds no menu entry for it, so the core's saved
+settings must name the card first. The Problock3 driver
 and the soshdboot ROM scan slots 4 to 1 for the block card, so it works in
 any slot. Apple's `.PROFILE` driver and ON THREE's mouse driver are
 configured for slot 4 on their disks, and the System Configuration Program
 moves them. There is one of each card, so a card chosen for two slots goes in
 the lower one and the other stays empty.
 
-A hard disk can have two cards on it, the block card and the ProFile card for
-that disk, since both can be installed at once. Only one of their drivers
-gets a disk's `SOS.DRIVER` in practice, as both are named `.PROFILE`, and
-`apple3_sd_arbiter` hands the image to one card's request at a time.
-`rtl/apple3_cards.sv` holds the cards, their slots and the arbiters, for the
-MiSTer top and the simulation harness alike.
+Each disk belongs to one card, so the block card and the ProFile cards never
+share an image. `rtl/apple3_cards.sv` holds the cards and their slots, for
+the MiSTer top and the simulation harness alike.
 
 ## Card interface
 
@@ -191,19 +192,13 @@ No Apple ROM is required for these tests.
 
 A third bench, `cards_tb.sv`, puts each card in each slot through
 `apple3_cards` and checks that only that slot answers, and with which card;
-that both ProFile cards serve their own disks; that a card chosen twice goes
-in the lower slot; that codes past the last card leave a slot empty; and that
-a choice waits for the reset. It then drives `apple3_sd_arbiter` with two
-requesters and a host: one alone, both in the same clock (the block card's
-side first) and one arriving during the other's transfer, and checks each
-block number, direction and write byte Main sees, and that the two cards are
-never acknowledged together.
+that each ProFile card sees only its own disk's mounts; that a card chosen
+twice goes in the lower slot; that codes past the last card leave a slot
+empty; and that a choice waits for the reset.
 
-Results on 2026-09-26, with the **Slot** options: `cards_tb` passes 138
-checks and the rest of the slot tests pass unchanged. On the MiSTer the
-ProFile card in slot 4 and the block card in slot 1 share Hard Disk 1, one
-writing through Apple's driver and the other reading it back through
-Problock3 ([details](PROFILE.md#results-2026-09-26)).
+Results on 2026-09-26, with the **Slot** options: `cards_tb` passes and the
+rest of the slot tests pass unchanged; the MiSTer runs are in the
+[ProFile results](PROFILE.md#results-2026-09-26).
 
 Results on 2026-09-18:
 
