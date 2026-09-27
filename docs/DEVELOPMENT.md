@@ -313,7 +313,8 @@ and adds write-mode bursts with their track positions. `--keys=` types a script
 once `--keys-after=TEXT` is on screen, for example
 `--keys=text:d,wait3,text:f,wait3,text:.d1,enter,text:wbfmt,enter,wait3,text:y,wait40,dump`
 to run SOS's Format a Volume (tokens: `enter`, `esc`, `up`, `down`, `left`,
-`right`, `del`, `bs`, `space`, `text:...`, `waitN` seconds, `dump` the text screen,
+`right`, `del`, `bs`, `space`, `f2` (RESET), `kp7` and `kp9` (keypad), `ctrl+` before any
+of these, `text:...`, `waitN` seconds, `dump` the text screen,
 `disk1:PATH` to `disk4:PATH` mount another WOZ as the OSD does and `disk1:-` ejects;
 `--drive1-out=PATH` to `--drive4-out` save a floppy after the run). `--writable` mounts images
 read-write and `--sd-write-delay=N` slows saved blocks. `--keytest` drives System Utilities with
@@ -325,7 +326,10 @@ tells one key code from another when the screen shows the same glyph. See
 comparison and the 6502 functional test, and
 [sim/hwtest/README.md](../sim/hwtest/README.md) for boot disks that check the
 character-download windows and display fetch timing by eye, and the three sound
-sources by ear, on a MiSTer.
+sources by ear, on a MiSTer. [sim/sosfeat/README.md](../sim/sosfeat/README.md)
+has a SOS interpreter that checks the features of Rick Sidwell's "Undocumented
+Apple /// SOS Features" that rest on the hardware (D_READ/D_WRITE and their
+errors, keyboard NMIs and NMIDSBL, SUSPFLSH, MEMSIZE, SYSFAIL).
 
 `sim/joystick/run.sh` runs a test ROM on the whole machine that reads the
 joystick the ways shipped software does: SOS 1.3's GET_ANALOG, timed by the D

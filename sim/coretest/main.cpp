@@ -94,6 +94,8 @@ int main(int argc, char **argv) {
 	// With --mouse-card, mouse:DX:DY is a host mouse report (Y counts upward),
 	// mouse:DX:DY:N is N of them a sixtieth of a second apart, and button:1 or
 	// button:0 presses or releases its button. One unit is one count.
+	// f2 is RESET, kp7 and kp9 the keypad's 7 and 9, and ctrl+KEY holds Control
+	// around any of these tokens (ctrl+f2 is CONTROL-RESET).
 	// disk1:PATH to disk4:PATH mounts another WOZ in that floppy drive, as the
 	// OSD does, and disk1:- ejects it; --driveN-out then saves the new disk.
 	std::string keys, keys_after;
@@ -462,12 +464,22 @@ int main(int argc, char **argv) {
 							continue;
 						}
 						uint8_t code = 0; bool ext = false;
+						// ctrl+KEY holds Control around KEY: ctrl+f2 is CONTROL-RESET.
+						const bool with_control = k.rfind("ctrl+", 0) == 0;
+						if (with_control) k = k.substr(5);
 						if (k == "enter") code = 0x5a; else if (k == "esc") code = 0x76;
 						else if (k == "down") { code = 0x72; ext = true; } else if (k == "up") { code = 0x75; ext = true; }
 						else if (k == "left") { code = 0x6b; ext = true; } else if (k == "right") { code = 0x74; ext = true; }
 						else if (k == "del") { code = 0x71; ext = true; } else if (k == "bs") code = 0x66;
 						else if (k == "space") code = 0x29;
-						if (code) { tap(at, code, ext); at += 0.6; }
+						else if (k == "f2") code = 0x06;  // the Apple ///'s RESET key
+						else if (k == "kp7") code = 0x6c; else if (k == "kp9") code = 0x7d;
+						if (code && with_control) {
+							tap(at, 0x14, false, 1);
+							tap(at + 0.1, code, ext);
+							tap(at + 0.3, 0x14, false, 0);
+							at += 0.9;
+						} else if (code) { tap(at, code, ext); at += 0.6; }
 					}
 					std::printf("key script armed at %.2f s\n", static_cast<double>(clock_cycles) / second);
 					break;

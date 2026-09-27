@@ -53,7 +53,9 @@ module sdram_model #(
 	real act_time[4], ready_time[4], precharge_at[4];
 
 	real now, last_refresh, mode_time, refresh_busy_until;
-	integer cycle_count, cas_latency, init_refreshes;
+	// 64 bits: a 32-bit count wraps after 2^31 clocks (150 s at 14.318 MHz).
+	longint cycle_count;
+	integer cas_latency, init_refreshes;
 	bit mode_set, precharged_all, started;
 
 	// Read data in flight: [0] leaves on the next clock.
