@@ -194,8 +194,7 @@ Existing partial implementations are noted where they provide a starting point.
       Preserve paired-byte reads and guest-visible memory timing, and budget for
       future card RAM and disk buffers.
 
-- [ ] **Microsoft SoftCard III.** Add it as a second CP/M option, including the
-      required bus integration and storage-driver configuration.
+- [ ] **Microsoft SoftCard III.**
 
 - [ ] **Titan III+IIe.** Add support for this expansion.
 
