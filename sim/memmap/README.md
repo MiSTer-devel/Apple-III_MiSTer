@@ -6,7 +6,8 @@ and the GHDL output the other whole-core tests use. Generated files stay in the
 ignored `obj_dir/`.
 
 `prom_reference.py` is a model of the main logic board's CPU-cycle decode with
-either of Apple's memory boards, built from the PROM dumps and the schematic
+either of Apple's memory boards, or with ON THREE's 512K board (`--board 512`,
+from its three PROMs, with the wiring inferences stated in the script), built from the PROM dumps and the schematic
 wiring between them, not from the RTL. It checks the dumps' hashes, names every
 DRAM cell through the documented map (262,144 on the 5 V / 256 KiB board,
 131,072 on the 12 V / 128 KiB one), resolves every other kind of access to the
@@ -14,7 +15,8 @@ cells it reaches, and derives RAMEN, the RAM read and write enables and the
 ROM, VIA and I/O selects from sheet 5's gates with 342-0045 and 342-0046.
 `--report` prints the map it derives, `--board 128` for the 12 V board.
 
-`memmap_prom_tb.sv` drives `apple3_mmu` with 171,160 vectors from it per board:
+`memmap_prom_tb.sv` drives `apple3_mmu` with 175,816 vectors from it for each
+of Apple's boards and 212,680 for the 512K board:
 every page under every bank register value, zero page and both stacks for
 every zero-page register value, every X byte, and the decode of `$A000` up in
 every combination of ROM enable, stack, write protection and I/O enable, in
@@ -26,8 +28,10 @@ The dumps are not redistributed. Set `APPLE3_PROM_DIR` to the unpacked
 directory; the archive.org and asimov file names are accepted too. The 12 V
 board's `341-0042.bin` and `341-0044.bin` are only in
 [archive.org `AppleIIIROMs`](https://archive.org/details/AppleIIIROMs): set
-`APPLE3_PROM_12V_DIR` to that directory, or put them with the others. Without
-the dumps this part, or its 128 KiB half, is skipped.
+`APPLE3_PROM_12V_DIR` to that directory, or put them with the others. The 512K
+board's `C11_512K.bin`, `C12_512K.bin` and `C13_512K.bin` are in asimov's
+`Apple3_512k_ram_card_proms.zip`: set `APPLE3_PROM_512K_DIR`. Without the dumps
+this part, or its 128 KiB or 512K share, is skipped.
 
 `core_memmap_tb.sv` runs `diagnostic.s` on the real CPU, VIAs, bank latch and
 RAM, and needs no dumps. The program writes through one view of memory and
@@ -38,8 +42,12 @@ register, and the relocated zero page and stacks. It then runs the latch cases
 that need a real 6502: the opcode after a store to the bank register coming
 from the old bank, and a PLA at `$00FF` pulling through the X byte of its own
 opcode fetch; reads a slot, the ROM and a VIA through the zero-page register;
-and asks the bench for the 128 KiB board and a reset to check its absent banks.
-It fails with its phase number.
+and asks the bench for the 128 KiB board and a reset to check its absent banks,
+then for the 512K board, whose banks 7-14 are in `apple3_sdram` and the SDRAM
+model: fifteen banks, bank register 15, the pairs through `$8E` and nothing
+behind it, both bytes of an SDRAM word, a zero page and stack in an upper bank,
+and bit 3 of the bank register arriving without the latch's delay. It fails
+with its phase number and the opcodes before the failure.
 
 See [the memory map](../../docs/MEMORY_MAP.md) for the sources, the findings and
 what remains unverified.

@@ -9,7 +9,8 @@ usable one: most software tried so far runs well.
 
 - Apple /// or Apple /// Plus, with the Plus's DELETE key and 560 × 384
   interlaced text
-- 256 or 128 KiB of RAM, mapped as on Apple's two memory boards
+- 256 or 128 KiB of RAM, mapped as on Apple's two memory boards, or 512 KiB
+  as on ON THREE's board, using the SDRAM module
   ([details](docs/MEMORY_MAP.md))
 - Every native video mode, and the Apple II modes for Apple II emulation
 - Character-set changes and mid-screen updates display as on real hardware
@@ -122,8 +123,13 @@ extra key, DELETE, on the host Delete key, and its **Text Interlace** switch:
 two fields half a line apart for 384 lines, showing pages 1 and 2 merged when
 a program selects page 2, as on the real machine. [Details](docs/INTERLACE.md).
 
-**Memory** in the OSD selects Apple's 256 KiB board or the earlier 128 KiB
-one. Like a board swap, it takes effect at the next reset.
+**Memory** in the OSD selects Apple's 256 KiB board, the earlier 128 KiB one,
+or ON THREE's 512K board, which needs an SDRAM module and is offered only with
+one. Like a board swap, it takes effect at the next reset. SOS uses the extra
+memory on disks that boot with ON THREE's boot block, as ON THREE's own disks
+do; Apple's boot block stops at 256K. Boot `releases/SOS512K.po`, the SOS 512K
+update disk, to give a disk the 512K check
+([details](docs/EXTERNAL_MEMORY.md#giving-a-disk-512k)).
 
 **Boot ROM** in the OSD selects Rob Justice's soshdboot ROM, which boots the
 block card's **Block Disk 1** if an image is mounted there and the floppy if
@@ -184,12 +190,6 @@ Booting SOS needs a WOZ disk image.
 ## Todo
 
 Existing partial implementations are noted where they provide a starting point.
-
-- [ ] **External memory and optional 512 KiB RAM.** Build on the parameterized
-      RAM/MMU support with an external-memory backend and a usable 512 KiB option.
-      Preserve paired-byte reads and guest-visible memory timing, and budget for
-      future card RAM and disk buffers. Keep 256 KiB RAM and below in BRAM, only use
-      SDRAM for 512 KiB mode.
 
 - [ ] **Microsoft SoftCard III.**
 

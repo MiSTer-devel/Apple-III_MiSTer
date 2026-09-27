@@ -4,7 +4,8 @@ The MMU is checked against Apple's boards themselves: a reference built from
 the address-decode PROM dumps and the schematic wiring between them, which
 shares nothing with the RTL. It covers the 5 V / 256 KiB board and the 12 V /
 128 KiB board, which the **Memory** option selects (256K by default; the change
-takes effect at the next reset, as a board swap would).
+takes effect at the next reset, as a board swap would), and
+[ON THREE's 512K board](#the-on-three-512k-board), the third choice.
 [`sim/memmap`](../sim/memmap/README.md) holds the reference and its tests.
 
 The reference reproduces the documented map exactly on both boards, confirms
@@ -123,6 +124,80 @@ The sister byte is how the X byte reaches the latch: for a zero page in
 `$18`..`$1F` it is the byte on bus A, which is where the latch's word 1 is
 wired. Other CPU reads strobe one CAS, so only these pages return a pair.
 
+## The ON THREE 512K board
+
+ON THREE sold the only 512 KiB upgrade (their User's Guide is in
+`research/docs/on_three`). It replaces the memory board, takes C11's socket by
+a ribbon cable to its own decoder PROM, C11A, and puts new PROMs at C12 and at
+C13, the latter with a cable of its own; a jumper socket under the E VIA at B4
+carries pin 5, PA3, the bank register bit Apple left unconnected. The asimov
+archive has the three PROMs; no schematic of the board is known.
+
+| Part | Location | SHA-256 |
+|---|---|---|
+| C11A, 512 x 8 | on the board | `abf9b5ebffc63c8ef05da637946cccf992c80b845c794cd8685c6a0af6f04c54` |
+| C12 | C12 | `f31c834f1c6aefd61fe77e1d6fcc9dd14db097ed20d6e347b70cf71d83ac431e` |
+| C13 | C13 | `745985d5ca9df76fad7ab193f56ca3cd335578f8f72ff609eb4ffe1c7b22b6de` |
+
+**From the dumps.** C11A's nine inputs are ABK4 and -ZPAGE, used only
+together (IND), the X byte's bit 3, -AY, PA15, ABK1-3 and PA3. With IND the X
+byte names the pair and PA15 adds one; otherwise ABK1-3 and PA3 name the bank.
+Five outputs encode the chips' bank as the logical bank plus one, modulo 16, so
+the system bank is 0 and bank register 15 gives 1, the same as the `$8F`
+window. A sixth is low exactly for a pair access, which is what 342-0061 puts on
+PRAS0,3. The new C12 differs from 342-0056 only in USELB, the data bus a row
+answers on; the new C13 matches 342-0063 while its A1 input, which 342-0063
+ignores, is low.
+
+**The chips.** ON THREE's president wrote to the ATUNC newsletter (August 1988)
+that "our 512K design splits the memory into two parts: 1/2 being made of 256K
+chips, the other 1/2 made of 64K chips", the latter taken from the owner's
+256 KiB board; a photo of the board (the Apple III DVD, `512k.jpg`) shows 32
+chips of one size and eight of another. C11A's code splits the same way:
+chip banks 0-7 hold the system bank and banks 0-6, the old board's contents,
+and chip banks 8-15 hold banks 7-14.
+
+**Inferred.** The reference takes C11A's pair output as PRAS0,3 and its
+"banks 8-15" output, the half of the board, as C13's A1: for the half that
+holds the old board's banks, C13 then decodes exactly as 342-0063 does. With that wiring every bank the board has
+strobes a CAS and only the upper half of `$8E`, the system bank's place,
+strobes none, as the last pair's upper half on Apple's boards. Of C11A's
+other outputs on A1, one behaves the same, one would put the system bank
+behind `$8E:8000`, and the rest leave banks unreachable.
+C12's CAS0 and CAS3 are taken as the system bank and C13's lines as the bank
+C11A names: they split the accesses exactly that way, outside and inside
+`$2000`..`$9FFF`. And because PA3 has its own input rather than going through
+the A9 latch like PA0-PA2, it is taken as the VIA pin itself: a store to the
+bank register changes bit 3 at once, while bits 0-2 still wait for the next
+read.
+
+ON THREE's own boot block bears this out. SOS 1.1-1.3's loader runs in the
+window, copies itself to bank 0 and then stores 0 to the bank register at
+`$2031`. On Apple's boards the next opcode, at `$2034`, still comes from the
+old bank, which holds the same code. On this board, leaving bank 14, bit 3
+drops at once and bits 0-2 do not, so that fetch comes from bank 6. There SOS
+has nothing, and the core then stops with a BRK. ON THREE's SOS BOOT 2.2 (1985)
+differs from 2.0 (1984) only by `LDA #$FF`, `STA $2034` with bank 6 selected.
+In the core, 2.0 disks stop at boot with 512K while 2.2 disks run.
+
+| Access | 512K board |
+|---|---|
+| Bank register 0..14 | that bank at `$2000`..`$9FFF` |
+| Bank register 15 | bank 0 |
+| X byte `$80`..`$8D` | bank n below `$8000`, bank n+1 above |
+| X byte `$8E` | bank 14 below; **no RAM** above |
+| X byte `$87` | banks 7 and 8, as the User's Guide warns ("you will access data in bank $7, not bank $0") |
+| X byte `$8F` | system map, bank 0 in the window |
+| X byte bits 6..4 | ignored; bit 3 selects banks 8-14 |
+| Everything else | as the 256 KiB board |
+
+`./sim/memmap/prom_reference.py --board 512 --report` prints it: 524,288
+distinct cells, and the sister byte of `$0800`..`$0FFF` and `$1800`..`$1FFF`
+unchanged. SOS takes its memory size from the boot block, and only ON THREE's
+boot block looks above bank 6: with it SOS 1.3 leaves the bank register at
+`$FE`, bank 14, where the 256 KiB board leaves `$F6`; with Apple's it stays at
+256K ([external memory](EXTERNAL_MEMORY.md#checked-on-a-mister)).
+
 ## What changed in the MMU
 
 1. **`$87` is `$8F`.** With eight banks the MMU treated `$87` as a linear pair
@@ -154,13 +229,13 @@ is how these went unnoticed. Everything else matched.
 * **The 5 V board with 128 KiB.** It uses 342-0062 for its CAS PROM, and no
   dump of that part was found. The 128 KiB setting is the 12 V board; bank
   register 7 in particular may land elsewhere on the other one.
-* **512 KiB.** The third-party upgrade replaces C11..C13 with its own PROMs
-  and adds the fourth bank bit. Apple's PROMs say nothing about it, and the
-  16-bank configuration is unchanged and unvalidated. Its dumps, for whoever
-  takes that on: `C11_512K.bin` (512 nibbles)
-  `abf9b5ebffc63c8ef05da637946cccf992c80b845c794cd8685c6a0af6f04c54`,
-  `C12_512K.bin` `f31c834f1c6aefd61fe77e1d6fcc9dd14db097ed20d6e347b70cf71d83ac431e`,
-  `C13_512K.bin` `745985d5ca9df76fad7ab193f56ca3cd335578f8f72ff609eb4ffe1c7b22b6de`.
+* **The 512K board's own logic.** How it uses C11A's outputs, what drives
+  C13's A1 and C12's PRAS1,2, and PA3 bypassing the latch are inferred from
+  the dumps, not read from a schematic ([above](#the-on-three-512k-board)).
+  The bypass has the support of SOS BOOT 2.2's bank 6 byte.
+  ON THREE's `UPGRADE.TO.512K` disk, whose updaters put ON THREE's boot block
+  on the owner's disks and patched several programs' own limits, has not been
+  found ([what it did](EXTERNAL_MEMORY.md#the-upgrade-software)).
 * **-INH and DMA.** Both reach 342-0045 and J7; no card in the core drives
   them, and the reference holds them inactive.
 * **Latch timing within a cycle.** The latch is modelled per CPU cycle. H4's
@@ -170,12 +245,13 @@ is how these went unnoticed. Everything else matched.
 
 ## Tests
 
-[`sim/memmap`](../sim/memmap/README.md): 342,320 vectors from the reference
-against `apple3_mmu`, for both boards, covering the RAM address, RAMEN, the RAM
+[`sim/memmap`](../sim/memmap/README.md): 564,312 vectors from the reference
+against `apple3_mmu`, for all three boards, covering the RAM address, RAMEN, the RAM
 read and write enables, ROM, VIA and I/O selects and the bus address; and a
 real-CPU diagnostic that reads and writes across each boundary, runs the latch
-cases on the real 6502, and then swaps to the 128 KiB board. It needs no
-dumps. `sim/mmu_tb.sv` and `sim/storage_tb.sv` carry a few of the cases for a
+cases on the real 6502, and then swaps to the 128 KiB board and to the 512K
+board, whose upper banks go through the SDRAM controller and its model. It
+needs no dumps. `sim/mmu_tb.sv` and `sim/storage_tb.sv` carry a few of the cases for a
 clone without them.
 
 On a MiSTer, [`memmap.po`](../sim/hwtest/README.md) runs the same checks from a
@@ -185,3 +261,6 @@ boots to System Utilities at both sizes, the Apple II emulation disk reaches
 its monitor, and the Confidence Program reports "Memory Map good for: 256K" or
 "128K" and runs its memory test (zero page and alternate stack, RAM, indirect
 addressing, every bank present and the `$8F` extension) without errors.
+With the 512K board SOS 1.3 boots to System Utilities in simulation and on a
+MiSTer, where `memmap.po` shows `MAP 512K` and `PPPPPPPPPPP.`
+([external memory](EXTERNAL_MEMORY.md)).

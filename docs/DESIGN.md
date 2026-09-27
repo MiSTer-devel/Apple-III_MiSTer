@@ -77,13 +77,15 @@ Sources (abbreviations used below):
 
 * RAM is 32 KB banks. The MiSTer shell models Apple's 256 KB 5 V memory board
   (banks 0-6 and the system bank), the largest configuration Apple shipped,
-  and the **Memory** option swaps in the 128 KB 12 V board (banks 0-2) at the
-  next reset. 512 KB requires a third-party expansion board; the MMU's
-  16-bank parameter covers it for simulation and future backends. The system
-  bank ("S") is the last bank in the FPGA's RAM at either size. CPU $0000-$1FFF = S-bank offset $0000-$1FFF, CPU
+  and the **Memory** option swaps in the 128 KB 12 V board (banks 0-2) or
+  ON THREE's 512 KB board (banks 0-14, bank register bit 3 from the VIA pin) at
+  the next reset. The block RAM holds banks 0-6 and the system bank ("S") in
+  every configuration; the 512 KB board's banks 7-14 are in SDRAM
+  ([external memory](EXTERNAL_MEMORY.md)). CPU $0000-$1FFF = S-bank offset $0000-$1FFF, CPU
   $A000-$FFFF = S-bank offset $2000-$7FFF, CPU $2000-$9FFF = window into bank
   register bank. [SRM ch.1-2, JEP, On Three 512K guide, MAME]
-* Bank register = E-VIA port A ($FFEF); only bits 2..0 reach Apple's boards.
+* Bank register = E-VIA port A ($FFEF); only bits 2..0 reach Apple's boards,
+  and bit 3 the 512 KB board, where 15 selects bank 0.
   On the 256 KB board 7 selects bank 2; on the 128 KB board 7 selects bank 0
   and 3-6 have no RAM, which reads $FF. It reaches the map through the bank
   latch, a register clocked at the end of each read, so the opcode fetch that

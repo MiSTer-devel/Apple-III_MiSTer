@@ -10,12 +10,9 @@ module emu (
 	`include "sys/emu_ports.vh"
 );
 
-	assign USER_OUT = '1;
-	assign ADC_BUS = 'Z;
-	assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
-	assign {SDRAM_DQ, SDRAM_A, SDRAM_BA, SDRAM_CLK, SDRAM_CKE,
-			SDRAM_DQML, SDRAM_DQMH, SDRAM_nWE, SDRAM_nCAS,
-			SDRAM_nRAS, SDRAM_nCS} = 'Z;
+	assign USER_OUT                                                                         = '1;
+	assign ADC_BUS                                                                          = 'Z;
+	assign {SD_SCK, SD_MOSI, SD_CS}                                                         = 'Z;
 	assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DDRAM_WE} = '0;
 
 `ifdef MISTER_DUAL_SDRAM
@@ -35,7 +32,7 @@ module emu (
 	// 0         1         2         3          4         5         6
 	// 01234567890123456789012345678901 23456789012345678901234567890123
 	// 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-	// X  XXXXXXXXXXXXXXXXXXXX XXXXXX   XXXXXXXXXXXX
+	// X  XXXXXXXXXXXXXXX XXXX XXXXXXXX XXXXXXXXXXXX
 	//
 	// Aspect ratio is status[122:121], where the Template keeps it.
 
@@ -64,7 +61,9 @@ module emu (
 		"-;",
 		"P1,System & ROM;",
 		"P1-;",
-		"P1OI,Memory,256K,128K;",
+		// 512K needs the SDRAM module (menu mask bit 7).
+		"h7P1O[31:30],Memory,256K,128K,512K;",
+		"H7P1O[31:30],Memory,256K,128K;",
 		"P1OJ,Video Standard,NTSC,PAL;",
 		"P1-;",
 		"P1O[26],Boot ROM,Apple,soshdboot;",
@@ -126,6 +125,7 @@ module emu (
 	wire [ 10:0] ps2_key;
 	wire [ 24:0] ps2_mouse;
 	wire [ 64:0] host_rtc;
+	wire [ 15:0] sdram_sz;
 
 	// "Video Standard" PAL is Apple's Euro system: the 50 Hz scan PROM,
 	// 341-0060, at G9.  Its 14.25045 MHz crystal is not modelled; the machine
@@ -188,7 +188,8 @@ module emu (
 		.status_in(status),
 		.status_set(1'b0),
 		.status_menumask({
-			9'd0,
+			8'd0,
+			sdram_present,
 			profile_2_chosen,
 			profile_1_chosen,
 			block_chosen,
@@ -237,6 +238,7 @@ module emu (
 		.ioctl_upload_index(8'd0),
 		.ioctl_din         (8'd0),
 		.ioctl_wait        (1'b0),
+		.sdram_sz          (sdram_sz),
 		.RTC               (host_rtc),
 		.EXT_BUS           (ext_bus)
 	);
@@ -275,7 +277,71 @@ module emu (
 	// the core is loaded again; the machine is held in reset while one arrives.
 	wire rom_download = ioctl_download && ((ioctl_index == 16'd0) || (ioctl_index[5:0] == 6'd2));
 	wire rom_write = rom_download && ioctl_wr && (ioctl_addr < 27'd8192);
-	wire core_reset = RESET || status[0] || hps_buttons[1] || !pll_locked || rom_download;
+	wire core_reset = RESET || status[0] || hps_buttons[1] || !pll_locked || rom_download || !sdram_ready;
+
+	// "Memory" is Apple's 256 or 128 KiB board or the ON THREE 512K board.
+	// The block RAM holds banks 0-6 and the system bank for all three; the
+	// 512K board's banks 7-14 are on the SDRAM module, so that choice needs
+	// one (Main reports its size in sdram_sz) and is 256K without.
+	wire       sdram_present = sdram_sz[15] && (sdram_sz[1:0] != 2'd0);
+	wire [1:0] memory_board = status[31:30];
+	wire       ram_512k = (memory_board == 2'd2) && sdram_present;
+
+	wire ext_ram_cycle, ext_ram_select, ext_ram_write, ext_ram_lane, sdram_ready;
+	wire [16:0] ext_ram_addr;
+	wire [ 7:0] ext_ram_din;
+	wire [15:0] ext_ram_q;
+	wire [15:0] sdram_dq_out;
+	wire        sdram_dq_oe;
+	apple3_sdram sdram (
+		.clk         (clk_14m),
+		.init        (!pll_locked),
+		.ready       (sdram_ready),
+		.cycle       (ext_ram_cycle),
+		.select      (ext_ram_select),
+		.addr        ({7'd0, ext_ram_addr}),
+		.we          (ext_ram_write),
+		.lane        (ext_ram_lane),
+		.din         (ext_ram_din),
+		.q           (ext_ram_q),
+		.sdram_cke   (SDRAM_CKE),
+		.sdram_cs_n  (SDRAM_nCS),
+		.sdram_ras_n (SDRAM_nRAS),
+		.sdram_cas_n (SDRAM_nCAS),
+		.sdram_we_n  (SDRAM_nWE),
+		.sdram_ba    (SDRAM_BA),
+		.sdram_a     (SDRAM_A),
+		.sdram_dq_out(sdram_dq_out),
+		.sdram_dq_oe (sdram_dq_oe),
+		.sdram_dq_in (SDRAM_DQ)
+	);
+	// MiSTer's modules take the byte masks on A12:A11; the DQM pins follow
+	// them for the modules that wire those instead.
+	assign {SDRAM_DQMH, SDRAM_DQML} = SDRAM_A[12:11];
+	assign SDRAM_DQ                 = sdram_dq_oe ? sdram_dq_out : 16'hzzzz;
+	// The chip's clock is the machine clock inverted, so it samples each
+	// command half a clock after the controller sends it.
+	altddio_out #(
+		.extend_oe_disable     ("OFF"),
+		.intended_device_family("Cyclone V"),
+		.invert_output         ("OFF"),
+		.lpm_hint              ("UNUSED"),
+		.lpm_type              ("altddio_out"),
+		.oe_reg                ("UNREGISTERED"),
+		.power_up_high         ("OFF"),
+		.width                 (1)
+	) sdram_clock (
+		.datain_h  (1'b0),
+		.datain_l  (1'b1),
+		.outclock  (clk_14m),
+		.dataout   (SDRAM_CLK),
+		.aclr      (1'b0),
+		.aset      (1'b0),
+		.oe        (1'b1),
+		.outclocken(1'b1),
+		.sclr      (1'b0),
+		.sset      (1'b0)
+	);
 
 	// Main is the only image-format backend: all floppy mounts arrive as
 	// native or converted WOZ, with independent mount and write-protect state.
@@ -420,12 +486,20 @@ module emu (
 		// The Apple /// Plus keyboard adds a DELETE key; the rest of the
 		// encoder output is the same on both machines.
 		.plus_keymap       (plus_model),
-		.ram_128k          (status[18]),
+		.ram_128k          (memory_board == 2'd1),
+		.ram_512k          (ram_512k),
 		.soshdboot         (status[26]),
 		.interlace         (interlace),
 		.euro              (euro),
 		// An unopened HPS UART deasserts RTS. The stock ROM requires CTS
 		// ready during its ACIA test, as with the unplugged motherboard port.
+		.ext_ram_cycle     (ext_ram_cycle),
+		.ext_ram_select    (ext_ram_select),
+		.ext_ram_addr      (ext_ram_addr),
+		.ext_ram_write     (ext_ram_write),
+		.ext_ram_lane      (ext_ram_lane),
+		.ext_ram_din       (ext_ram_din),
+		.ext_ram_q         (ext_ram_q),
 		.serial_rx         (UART_RXD),
 		.serial_cts_n      (status[9] && UART_CTS),
 		// "Serial DSR" defaults to ready, as R88 holds an unplugged port's

@@ -50,7 +50,6 @@ lint_off -rule PINMISSING -file "Apple-III.sv" -match "*Instance has missing pin
 lint_off -rule PINMISSING -file "Apple-III.sv" -match "*Instance has missing pin: 'ioctl_upload'"
 lint_off -rule PINMISSING -file "Apple-III.sv" -match "*Instance has missing pin: 'ioctl_rd'"
 lint_off -rule PINMISSING -file "Apple-III.sv" -match "*Instance has missing pin: 'ioctl_file_ext'"
-lint_off -rule PINMISSING -file "Apple-III.sv" -match "*Instance has missing pin: 'sdram_sz'"
 lint_off -rule PINMISSING -file "Apple-III.sv" -match "*Instance has missing pin: 'TIMESTAMP'"
 lint_off -rule PINMISSING -file "Apple-III.sv" -match "*Instance has missing pin: 'uart_mode'"
 lint_off -rule PINMISSING -file "Apple-III.sv" -match "*Instance has missing pin: 'uart_speed'"
@@ -87,6 +86,9 @@ lint_off -rule UNUSEDSIGNAL -file "Apple-III.sv" -match "*Bits of signal are not
 lint_off -rule UNUSEDSIGNAL -file "Apple-III.sv" -match "*Bits of signal are not used: 'joystick_0'[31:6]*"
 lint_off -rule UNUSEDSIGNAL -file "Apple-III.sv" -match "*Bits of signal are not used: 'joystick_1'[31:6]*"
 lint_off -rule UNUSEDSIGNAL -file "Apple-III.sv" -match "*Bits of signal are not used: 'scanline_level'[2]*"
+// Only whether an SDRAM module is fitted matters, not its size or Main's
+// phase-debug field.
+lint_off -rule UNUSEDSIGNAL -file "Apple-III.sv" -match "*Bits of signal are not used: 'sdram_sz'[14:2]*"
 
 // Unused CPU debug/VIA bits and observation outputs. The I/O soft switches
 // remain modeled; the Silentype connector and double-sided media are not implemented.
@@ -103,8 +105,9 @@ lint_off -rule UNUSEDSIGNAL -file "rtl/apple3_core.sv" -match "*Signal is not us
 lint_off -rule UNUSEDSIGNAL -file "rtl/apple3_core.sv" -match "*Signal is not used: 'd1_io_active'*"
 lint_off -rule UNUSEDSIGNAL -file "rtl/apple3_core.sv" -match "*Signal is not used: 'd2_io_active'*"
 
-// The default 256 KiB RAM uses 17 word-address bits; the shared interface also
-// supports the optional 512 KiB configuration, which consumes the extra bit.
+// The MMU's word address has a fourth bank bit, for the 512K board. The block
+// RAM does not need it: its banks 0-6 are below 8 and the system bank, 7 or
+// 15, lands in slot 7 either way.
 lint_off -rule UNUSEDSIGNAL -file "rtl/apple3_ram.sv" -match "*Bits of signal are not used: 'cpu_addr'[17]*"
 lint_off -rule UNUSEDSIGNAL -file "rtl/apple3_ram.sv" -match "*Bits of signal are not used: 'video_addr'[17]*"
 // The mouse card takes a report's movement and left button, leaves PB0 of its
@@ -158,6 +161,9 @@ lint_off -file "sim/gen/*"
 lint_off -rule TIMESCALEMOD -file "sim/gen/*"
 lint_off -rule SIMILARNAME -file "sim/gen/*"
 
-// The PLL is a port-only boundary, not a behavioral model.
+// The PLL and the SDRAM clock's DDIO are port-only boundaries, not behavioral
+// models.
 lint_off -file "lint/pll.sv"
 lint_off -rule TIMESCALEMOD -file "lint/pll.sv"
+lint_off -file "lint/altddio_out.sv"
+lint_off -rule TIMESCALEMOD -file "lint/altddio_out.sv"

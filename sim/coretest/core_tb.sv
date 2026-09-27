@@ -17,6 +17,8 @@ module core_tb #(
 	input  logic       [24:0] ps2_mouse,
 	input  logic              plus_keymap,
 	input  logic              ram_128k,
+	// The ON THREE 512K board: banks 7-14 in the SDRAM model (--ram512k).
+	input  logic              ram_512k,
 	// The OSD's Boot ROM option: Rob Justice's soshdboot ROM.
 	input  logic              soshdboot,
 	// The Apple /// Plus text interlace switch, and the field it is showing.
@@ -215,19 +217,122 @@ module core_tb #(
 		assign sd_buff_din[i] = hd_din[i-4];
 	end
 
+	// External memory as on the MiSTer: apple3_sdram and a chip on the
+	// inverted clock, which checks the controller's timing.
+	wire ext_ram_cycle, ext_ram_select, ext_ram_write, ext_ram_lane;
+	wire [16:0] ext_ram_addr;
+	wire [ 7:0] ext_ram_din;
+	wire [15:0] ext_ram_q;
+	wire sdram_ready, sdram_cke, sdram_cs_n, sdram_ras_n, sdram_cas_n, sdram_we_n, sdram_dq_oe, chip_dq_valid;
+	wire [ 1:0] sdram_ba;
+	wire [12:0] sdram_a;
+	wire [15:0] sdram_dq_out, chip_dq;
+	integer chip_errors, chip_refreshes;
+	logic sdram_init = 1'b1;
+	always @(posedge clk) sdram_init <= 1'b0;
+	apple3_sdram sdram (
+		.clk,
+		.init       (sdram_init),
+		.ready      (sdram_ready),
+		.cycle      (ext_ram_cycle),
+		.select     (ext_ram_select),
+		.addr       ({7'd0, ext_ram_addr}),
+		.we         (ext_ram_write),
+		.lane       (ext_ram_lane),
+		.din        (ext_ram_din),
+		.q          (ext_ram_q),
+		.sdram_cke,
+		.sdram_cs_n,
+		.sdram_ras_n,
+		.sdram_cas_n,
+		.sdram_we_n,
+		.sdram_ba,
+		.sdram_a,
+		.sdram_dq_out,
+		.sdram_dq_oe,
+		.sdram_dq_in(chip_dq_valid ? chip_dq : 16'hffff)
+	);
+	sdram_model chip (
+		.clk         (!clk),
+		.cke         (sdram_cke),
+		.cs_n        (sdram_cs_n),
+		.ras_n       (sdram_ras_n),
+		.cas_n       (sdram_cas_n),
+		.we_n        (sdram_we_n),
+		.ba          (sdram_ba),
+		.a           (sdram_a),
+		.dqm         (sdram_a[12:11]),  // wired as on a MiSTer module
+		.dq_in       (sdram_dq_out),
+		.dq_in_valid (sdram_dq_oe),
+		.dq_out      (chip_dq),
+		.dq_out_valid(chip_dq_valid),
+		.errors      (chip_errors),
+		.refreshes   (chip_refreshes)
+	);
+	always @(posedge clk) if (chip_errors != 0) $fatal(1, "SDRAM model: protocol error");
+	integer ext_reads = 0, ext_writes = 0;
+	always @(posedge clk)
+		if (ext_ram_cycle && ext_request[19] && ram_512k && !dut.machine_reset) begin
+			if (ext_request[1]) ext_writes <= ext_writes + 1;
+			else ext_reads <= ext_reads + 1;
+		end
+	final
+		if (ram_512k)
+			$display(
+				"512K: %0d reads and %0d writes of banks 7-14 in SDRAM, %0d refreshes",
+				ext_reads,
+				ext_writes,
+				chip_refreshes
+			);
+
+	// The external-memory contract of apple3_core: a request holds from the
+	// clock after ext_ram_cycle to the next one, its byte from the clock
+	// after that, and cycles are seven or more clocks apart.
+	logic          ext_start = 1'b0;
+	logic   [19:0] ext_request;
+	logic   [ 7:0] ext_byte;
+	integer        ext_age = 0;
+	always @(posedge clk) begin
+		ext_start <= ext_ram_cycle;
+		// ext_age counts from 1 in the second clock of a cycle.
+		if (ext_ram_cycle && ext_age + 1 < 7 && !dut.machine_reset && ram_512k)
+			$fatal(1, "CPU cycle of %0d clocks", ext_age + 1);
+		if (ext_start) begin
+			ext_request <= {ext_ram_select, ext_ram_addr, ext_ram_write, ext_ram_lane};
+			ext_age     <= 1;
+		end else begin
+			ext_age <= ext_age + 1;
+			if (ext_age == 1) ext_byte <= ext_ram_din;
+			if (ram_512k && !dut.machine_reset && ext_request[19]) begin
+				if ({ext_ram_select, ext_ram_addr, ext_ram_write, ext_ram_lane} != ext_request)
+					$fatal(1, "external RAM request changed %0d clocks into a cycle, PC %04x", ext_age, pc);
+				if (ext_age > 1 && ext_request[1] && ext_ram_din != ext_byte)
+					$fatal(1, "external RAM write byte changed %0d clocks into a cycle, PC %04x", ext_age, pc);
+			end
+		end
+	end
+
 	apple3_core #(
 		.ROM_INIT_FILE (ROM_FILE),
 		.ROM_INIT_START(4096)
 	) dut (
 		.clk_14m            (clk),
-		.reset,
+		.reset              (reset || !sdram_ready),
 		.ps2_key            (ps2_key),
 		.plus_keymap        (plus_keymap),
 		.ram_128k           (ram_128k),
+		.ram_512k           (ram_512k),
 		.soshdboot          (soshdboot),
 		.interlace,
 		.euro,
 		.host_rtc,
+		.ext_ram_cycle,
+		.ext_ram_select,
+		.ext_ram_addr,
+		.ext_ram_write,
+		.ext_ram_lane,
+		.ext_ram_din,
+		.ext_ram_q,
 		.serial_rx,
 		.serial_cts_n,
 		.serial_dsr_n,

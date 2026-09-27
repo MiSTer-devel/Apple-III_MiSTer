@@ -66,6 +66,8 @@ vvp sim/obj_dir/acia_baud_tb
 
 ./sim/disk/run.sh
 ./sim/memmap/run.sh
+./sim/sdram/run.sh
+python3 tools/test_onthree_boot.py
 ./sim/slots/run.sh
 ./sim/blockdev/run.sh
 ./sim/profile/run.sh

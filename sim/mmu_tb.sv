@@ -5,39 +5,43 @@ module mmu_tb;
 	logic        cpu_read;
 	logic [7:0] environment, zero_page, bank_register, extended_bank;
 	logic native_mode, extended_active, ram_128k;
+	// The ON THREE 512K board; bank_pa3 is the VIA pin its jumper reads.
+	logic ram_512k = 1'b1;
+	logic bank_pa3 = 1'b0;
 	logic dma_cycle = 0;
 	wire dma_read_allowed, dma_write_allowed;
 	wire [15:0] bus_addr;
 	wire [18:0] ram_byte_addr;
 	wire [17:0] ram_word_addr;
-	wire ram_lane, ram_select, ram_read, ram_write_allowed, rom_read, io_select;
+	wire ram_lane, ram_external, ram_select, ram_read, ram_write_allowed, rom_read, io_select;
 	wire via_d_select, via_e_select, slot_rom_select;
 	wire    [12:0] rom_addr;
 	integer        checks = 0;
 
-	apple3_mmu #(.RAM_BANKS(16)) dut (.*);
+	apple3_mmu dut (.*);
 
 	// The stock 256 KiB machine.  docs/MEMORY_MAP.md derives these from the
 	// decoder PROMs; sim/memmap checks the whole map against the dumps.
 	wire [18:0] stock_addr;
 	wire stock_read, stock_write;
-	apple3_mmu #(
-		.RAM_BANKS(8)
-	) stock (
+	apple3_mmu stock (
 		.cpu_addr,
 		.cpu_read,
 		.environment,
 		.zero_page,
 		.bank_register,
+		.bank_pa3         (bank_register[3]),
 		.native_mode,
 		.extended_active,
 		.extended_bank,
 		.ram_128k,
+		.ram_512k         (1'b0),
 		.dma_cycle        (1'b0),
 		.bus_addr         (),
 		.ram_byte_addr    (stock_addr),
 		.ram_word_addr    (),
 		.ram_lane         (),
+		.ram_external     (),
 		.ram_select       (),
 		.ram_read         (stock_read),
 		.ram_write_allowed(stock_write),
@@ -72,6 +76,29 @@ module mmu_tb;
 				$fatal(1);
 			end
 		end
+	endtask
+
+	// The 512K board: the address, whether RAM answers, and whether the bank
+	// is outside the block RAM.
+	task automatic expect_512k(input [15:0] a, input [18:0] p, input logic present, input logic external);
+		cpu_addr = a;
+		#1;
+		checks++;
+		if (present ? (ram_byte_addr !== p || ram_read !== cpu_read || ram_external !== external) :
+			(ram_read || ram_write_allowed))
+			$fatal(
+				1,
+				"512K %04x bank=%02x pa3=%b x=%02x/%b -> %05x read=%b write=%b external=%b",
+				a,
+				bank_register,
+				bank_pa3,
+				extended_bank,
+				extended_active,
+				ram_byte_addr,
+				ram_read,
+				ram_write_allowed,
+				ram_external
+			);
 	endtask
 
 	task automatic expect_decode(input rram, input wram, input rrom, input io, input vd, input ve);
@@ -113,11 +140,22 @@ module mmu_tb;
 		expect_addr(16'ha000, 19'h7a000);
 		expect_addr(16'hffff, 19'h7ffff);
 
-		// Window bank selection, including the forbidden system-bank alias.
+		// Window bank selection.  Bit 3 is PA3 at the pin, not the latch's,
+		// and bank register 15 is bank 0 (C11A gives the chips bank + 1).
+		bank_register = 8'h06;
+		bank_pa3      = 1'b1;
+		expect_512k(16'h3456, 19'h71456, 1, 1);
 		bank_register = 8'h0e;
-		expect_addr(16'h3456, 19'h71456);
-		bank_register = 8'h0f;
-		expect_addr(16'h2000, 19'h10000);
+		bank_pa3      = 1'b0;
+		expect_512k(16'h3456, 19'h31456, 1, 0);
+		bank_register = 8'h07;
+		expect_512k(16'h9fff, 19'h3ffff, 1, 1);
+		bank_pa3 = 1'b1;
+		expect_512k(16'h2000, 19'h00000, 1, 0);
+		expect_512k(16'ha000, 19'h7a000, 1, 0);
+		bank_register = 8'h00;
+		expect_512k(16'h2000, 19'h40000, 1, 1);
+		bank_pa3 = 1'b0;
 
 		// Relocated zero page and adjacent-stack modes.
 		bank_register = 8'h04;
@@ -137,8 +175,21 @@ module mmu_tb;
 		extended_bank   = 8'h83;
 		expect_addr(16'h1234, 19'h19234);
 		expect_addr(16'h9234, 19'h21234);
+		extended_bank = 8'h86;
+		expect_512k(16'hffff, 19'h3ffff, 1, 1);
+		extended_bank = 8'h87;  // bank 7 and 8 on this board, not $8F
+		expect_512k(16'h2345, 19'h3a345, 1, 1);
+		expect_512k(16'h9234, 19'h41234, 1, 1);
+		extended_bank = 8'h8d;
+		expect_512k(16'h8000, 19'h70000, 1, 1);
 		extended_bank = 8'h8e;
-		expect_addr(16'hffff, 19'h7ffff);
+		expect_512k(16'h7fff, 19'h77fff, 1, 1);
+		expect_512k(16'h8000, 19'h00000, 0, 0);  // no CAS behind the last pair
+		cpu_read = 1'b0;
+		expect_512k(16'hffff, 19'h00000, 0, 0);
+		cpu_read      = 1'b1;
+		extended_bank = 8'hfe;  // bits 6-4 are not connected
+		expect_512k(16'h1234, 19'h71234, 1, 1);
 		extended_bank = 8'h8f;
 		expect_addr(16'h2345, 19'h00345);
 		expect_addr(16'hc123, 19'h7c123);

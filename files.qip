@@ -17,6 +17,7 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/disk/woz/woz_floppy_controlle
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/apple3_timing.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/apple3_mmu.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/apple3_ram.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/apple3_sdram.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/apple3_rom.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/apple3_extaddr.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/apple3_keyboard.sv

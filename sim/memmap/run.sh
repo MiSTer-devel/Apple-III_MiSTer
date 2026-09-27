@@ -8,6 +8,7 @@ mkdir -p "$out"
 # diagnostic runs.  The 12 V board's two PROMs are not in the bitsavers set.
 proms=${APPLE3_PROM_DIR:-research/docs/bitsavers/A3PROMs}
 proms_12v=${APPLE3_PROM_12V_DIR:-research/roms/archive.org_AppleIIIROMs}
+proms_512k=${APPLE3_PROM_512K_DIR:-research/roms/asimov_rom_images_apple3/Apple3_512k_ram_card_proms}
 have() {
   local part=$1 dir
   shift
@@ -26,6 +27,13 @@ if have 342-0061 "$proms" && have 342-0045 "$proms"; then
     cat "$out/vectors-128.txt" >> "$out/vectors.txt"
   else
     echo "SKIP 128 KiB PROM comparison: set APPLE3_PROM_12V_DIR to the 341-0042 and 341-0044 dumps"
+  fi
+  if have C11_512K "$proms_512k"; then
+    python3 sim/memmap/prom_reference.py --prom-dir "$proms" --prom-dir "$proms_512k" --board 512 \
+      --vectors "$out/vectors-512.txt"
+    cat "$out/vectors-512.txt" >> "$out/vectors.txt"
+  else
+    echo "SKIP 512K PROM comparison: set APPLE3_PROM_512K_DIR to the C11_512K, C12_512K and C13_512K dumps"
   fi
   if ! iverilog -g2012 -s memmap_prom_tb -o "$out/memmap_prom_tb" \
     rtl/apple3_mmu.sv sim/memmap/memmap_prom_tb.sv >"$out/unit-build.log" 2>&1; then
@@ -47,6 +55,7 @@ if ! verilator --binary --timing -j 4 --top-module core_memmap_tb \
   sim/gen/t65.v sim/gen/via6522.v \
   rtl/disk/apple3_p6.sv rtl/disk/apple3_disk_sequencer.sv rtl/apple3_mmu.sv \
   rtl/apple3_timing.sv rtl/apple3_ram.sv rtl/apple3_rom.sv rtl/apple3_extaddr.sv \
+  rtl/apple3_sdram.sv sim/sdram/sdram_model.sv \
   rtl/apple3_keyboard.sv rtl/apple3_io.sv rtl/apple3_rtc.sv \
   rtl/acia/gen_uart.v rtl/apple3_acia.sv rtl/apple3_disk.sv rtl/apple3_video.sv \
   rtl/apple3_slots.sv rtl/apple3_slot_rom.sv rtl/apple3_core.sv \

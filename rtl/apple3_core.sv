@@ -3,14 +3,15 @@
 
 module apple3_core #(
 	parameter         ROM_INIT_FILE  = "",
-	parameter integer ROM_INIT_START = 4096,
-	parameter integer RAM_BANKS      = 8
+	parameter integer ROM_INIT_START = 4096
 ) (
 	input logic        clk_14m,
 	input logic        reset,
 	input logic [10:0] ps2_key,
 	input logic        plus_keymap,
 	input logic        ram_128k,
+	// The ON THREE 512K board, whose banks 7-14 are external memory.
+	input logic        ram_512k,
 	// Rob Justice's soshdboot ROM in place of Apple's boot ROM.
 	input logic        soshdboot,
 	// The Apple /// Plus text interlace switch.
@@ -51,6 +52,21 @@ module apple3_core #(
 	input  logic [ 3:0]      slot_dma_req,
 	input  logic [ 3:0]      slot_dma_write,
 	output logic [ 7:0]      slot_dma_data,
+
+	// External memory for the 512K board's banks 7-14 (apple3_sdram on the
+	// MiSTer). ext_ram_cycle is cpu_enable, the end of a CPU cycle. From the
+	// clock after it until the next one, ext_ram_select says the new cycle's
+	// RAM access is external, with its sister-byte word address, direction
+	// and byte lane; ext_ram_din is valid from the clock after that. The
+	// word must be on ext_ram_q by the next ext_ram_cycle, which comes seven
+	// or more clocks later: the guest sees no wait states.
+	output logic        ext_ram_cycle,
+	output logic        ext_ram_select,
+	output logic [16:0] ext_ram_addr,
+	output logic        ext_ram_write,
+	output logic        ext_ram_lane,
+	output logic [ 7:0] ext_ram_din,
+	input  logic [15:0] ext_ram_q,
 
 	input  logic serial_rx,
 	input  logic serial_cts_n,
@@ -140,13 +156,14 @@ module apple3_core #(
 	logic [ 7:0] latched_bank;
 	logic [15:0] bus_addr;
 	logic        ram_128k_q;
+	logic        ram_512k_q;
 	logic        soshdboot_q;
 	logic [ 7:0] e_pa_external;
 
 	logic [18:0] ram_byte_addr;
 	logic [17:0] ram_word_addr;
-	logic ram_lane, ram_select, ram_read, ram_write_allowed, ram_write;
-	logic [15:0] ram_q;
+	logic ram_lane, ram_external, ram_select, ram_read, ram_write_allowed, ram_write;
+	logic [15:0] ram_q, block_ram_q;
 	logic [7:0] ram_cpu_data, sister_data;
 	logic [17:0] video_ram_addr;
 	logic [15:0] video_ram_q;
@@ -209,7 +226,11 @@ module apple3_core #(
 	assign machine_reset = reset || (environment[4] && reset_key && control_key);
 	// The memory board is changed with the power off: the option takes effect
 	// at the next reset.
-	always_ff @(posedge clk_14m) if (machine_reset) ram_128k_q <= ram_128k;
+	always_ff @(posedge clk_14m)
+		if (machine_reset) begin
+			ram_128k_q <= ram_128k;
+			ram_512k_q <= ram_512k;
+		end
 	// So does a change of boot ROM, as the chip swap it stands for would.
 	always_ff @(posedge clk_14m) if (machine_reset) soshdboot_q <= soshdboot;
 	assign cpu_irq_n        = !(via_d_irq || via_e_irq || acia_irq);
@@ -244,6 +265,16 @@ module apple3_core #(
 	assign ram_write        = dma_cycle ? (dma_to_ram && dma_write_allowed) : ram_write_allowed;
 	assign rtc_cycle        = io_select && (cpu_addr[7:4] == 4'h7);
 	assign peripheral_cycle = via_d_select || via_e_select || rtc_cycle || (io_select && (cpu_addr[7:4] == 4'hf));
+
+	// Block RAM holds banks 0-6 and the system bank; the MMU numbers the
+	// 512K board's system bank 15, which lands in bank 7's place.
+	assign ram_q          = ram_external ? ext_ram_q : block_ram_q;
+	assign ext_ram_cycle  = cpu_enable;
+	assign ext_ram_select = ram_external;
+	assign ext_ram_addr   = {ram_word_addr[16:14] - 3'd7, ram_word_addr[13:0]};
+	assign ext_ram_write  = ram_write;
+	assign ext_ram_lane   = ram_lane;
+	assign ext_ram_din    = dma_cycle ? dma_data : cpu_dout;
 
 	assign ram_cpu_data = ram_lane ? ram_q[15:8] : ram_q[7:0];
 	assign sister_data  = ram_lane ? ram_q[7:0] : ram_q[15:8];
@@ -308,23 +339,24 @@ module apple3_core #(
 		.field        (video_field)
 	);
 
-	apple3_mmu #(
-		.RAM_BANKS(RAM_BANKS)
-	) mmu (
+	apple3_mmu mmu (
 		.cpu_addr,
 		.cpu_read     (cpu_rwn),
 		.environment,
 		.zero_page,
 		.bank_register(latched_bank),
+		.bank_pa3     (bank_register[3]),
 		.native_mode,
 		.extended_active,
 		.extended_bank,
 		.ram_128k     (ram_128k_q),
+		.ram_512k     (ram_512k_q),
 		.dma_cycle,
 		.bus_addr,
 		.ram_byte_addr,
 		.ram_word_addr,
 		.ram_lane,
+		.ram_external,
 		.ram_select,
 		.ram_read,
 		.ram_write_allowed,
@@ -360,15 +392,13 @@ module apple3_core #(
 		.bus_conflict (slot_bus_conflict)
 	);
 
-	apple3_ram #(
-		.WORD_ADDRESS_BITS(14 + $clog2(RAM_BANKS))
-	) ram (
+	apple3_ram ram (
 		.clk       (clk_14m),
 		.cpu_addr  (ram_word_addr),
 		.cpu_lane  (ram_lane),
-		.cpu_we    (cpu_enable && ram_write),
-		.cpu_din   (dma_cycle ? dma_data : cpu_dout),
-		.cpu_q     (ram_q),
+		.cpu_we    (cpu_enable && ram_write && !ram_external),
+		.cpu_din   (ext_ram_din),
+		.cpu_q     (block_ram_q),
 		.video_addr(video_ram_addr),
 		.video_q   (video_ram_q)
 	);

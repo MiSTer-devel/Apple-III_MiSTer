@@ -1,7 +1,9 @@
 ; Reads and writes across the memory-map boundaries on the real T65, MMU,
 ; bank latch and RAM.  Every expectation is what the decoder PROMs and the
 ; schematic give (prom_reference.py --report): phases 1-10 for the 256 KiB
-; board, then the bench switches to the 128 KiB board and resets for 12-13.
+; board, then the bench switches to the 128 KiB board and resets for 12-13,
+; and to the ON THREE 512K board for 15-19, whose banks 7-14 are the
+; external memory (--board 512).
 .setcpu "6502"
 .segment "CODE"
 .org $f000
@@ -72,10 +74,13 @@ reset:
     sta ZREG
     ldy #0
     sty XBYTE-1
-    lda $0204                   ; RAM survives the reset into the 128 KiB board
+    lda $0204                   ; RAM survives the reset into the next board
     cmp #$a8
     bne :+
     jmp small
+:   cmp #$a5
+    bne :+
+    jmp big
 :
 
     ; 1. Bank pairs: $8n:0000-7FFF is bank n, $8n:8000-FFFF bank n+1.
@@ -331,6 +336,129 @@ small:
     expect $2000, $c2
     expect $0204, $00
 
+    ; 14. Ask the bench for the 512K board and a reset.
+    phase 14
+    store $0204, $a5
+    sta $0203
+wait512:
+    jmp wait512
+
+    ; 15. 512K: fifteen banks, bit 3 of the bank register works, and 15 is
+    ;     bank 0, as C11A gives the chips bank + 1.  A write to one byte of an
+    ;     external word leaves its sister byte alone.
+big:
+    phase 15
+    store $0204, $00
+    ldx #14
+:   stx BANK
+    txa
+    ora #$e0
+    sta $2000
+    sta $2100
+    dex
+    bpl :-
+    ldx #14
+:   stx BANK
+    txa
+    ora #$e0
+    cmp $2100
+    beq :+
+    jmp fail
+:   dex
+    bpl :--
+    bank 15
+    expect $2000, $e0
+    bank 9                      ; both bytes of an SDRAM word: $2100 and its
+    store $2100, $a9            ; sister byte, $2100 xor $0C00
+    store $2d00, $b9
+    expect $2100, $a9
+    expect $2d00, $b9
+    store $2100, $e9            ; phase 16 reads the bank's mark here
+
+    ; 16. Pairs through bank 14: $87 is banks 7 and 8, not $8F; the index
+    ;     carries from bank 7 into 8; and $8E ends in bank 14.  (An X byte
+    ;     never redirects page 0.)
+    phase 16
+    xexpect $0100, $87, $e7
+    xexpect $8000, $87, $e8
+    xexpect $0100, $8d, $ed
+    xexpect $8100, $8d, $ee
+    xexpect $0100, $8e, $ee
+    xstore $7fff, $86, $76      ; last byte of bank 6
+    xstore $ffff, $86, $77      ; last byte of bank 7
+    xstore $7fff, $87, $78      ; the same byte, through $87
+    xexpect $ffff, $86, $78
+    xptr $7fff, $87
+    ldy #1
+    lda (PTR),y                 ; bank 8's first byte
+    ldy #0
+    cmp #$e8
+    beq :+
+    jmp fail
+:   bank 6
+    expect $9fff, $76
+    bank 7
+    expect $9fff, $78
+    xstore $2345, $8f, $5f      ; $8F is still bank 0 in the window
+    bank 0
+    expect $2345, $5f
+
+    ; 17. Nothing behind the upper half of $8E, the system bank's place.
+    phase 17
+    store $1000, $31
+    xstore $8000, $8e, $ee
+    xexpect $8000, $8e, $ff
+    xexpect $9000, $8e, $ff
+    expect $1000, $31
+    bank 0
+    expect $2000, $e0
+
+    ; 18. X byte bit 3 selects the upper banks, bits 6-4 are ignored; a zero
+    ;     page and a stack in an upper bank.
+    phase 18
+    xexpect $0100, $f9, $e9
+    xexpect $0100, $b1, $e1
+    bank 3
+    store $4010, $03
+    bank 11
+    lda #$40                    ; zero page $40: $4000 in bank 11
+    sta ZREG
+    lda #$4b
+    sta $10
+    lda #ENV_ALT
+    sta ENVREG
+    ldx #$20
+    txs
+    lda #$b4
+    pha                         ; alternate stack $41: $4120 in bank 11
+    lda #ENV_PRIMARY
+    sta ENVREG
+    ldx #$ff
+    txs
+    lda #$1a
+    sta ZREG
+    expect $4010, $4b
+    expect $4120, $b4
+    bank 3
+    expect $4010, $03
+
+    ; 19. The bank register's bit 3 comes from the VIA pin, not the latch: the
+    ;     opcode after a store from bank 1 to bank 9 is already bank 9's.
+    phase 19
+    bank 9
+    jsr copylag9
+    store $3005, $a2            ; bank 9: LDX #$99
+    store $3006, $99
+    bank 1
+    jsr copylag9                ; bank 1: LDX #$11
+    ldx #0
+    jmp $3000
+lag9back:
+    cpx #$99
+    beq :+
+    jmp fail
+:
+
     lda #$5a
     sta $0200
 done:
@@ -357,5 +485,18 @@ lagcode:
     ldx #$11
     jmp lagback
 lagend:
+copylag9:
+    ldx #lag9end-lag9code-1
+:   lda lag9code,x
+    sta $3000,x
+    dex
+    bpl :-
+    rts
+lag9code:
+    lda #9
+    sta BANK
+    ldx #$11
+    jmp lag9back
+lag9end:
 .res $fffa-*, $ea
 .word nmi, reset, fail

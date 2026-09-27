@@ -1,6 +1,7 @@
-// Apple /// RAM arranged as sister-byte pairs.  The stock 256 KiB machine uses
-// 128K words; the parameters also support the documented 128 KiB configuration
-// and third-party 512 KiB expansion for simulation and future builds.
+// Apple /// RAM arranged as sister-byte pairs: 128K words hold banks 0-6 and
+// the system bank, which is all of Apple's 256 KiB board and covers its
+// 128 KiB one.  The 512K board's banks 7-14 are external memory
+// (apple3_sdram), so the block RAM is the same size in every configuration.
 // Addresses which differ by $0c00 share a word.  This mirrors the two DRAM
 // output buses described in Apple patent US4383296 and the service manual.
 //

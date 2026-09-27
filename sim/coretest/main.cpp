@@ -47,6 +47,9 @@ int main(int argc, char **argv) {
 	// --hd1-out=, --hd2-out=, --profile1-out= and --profile2-out=PATH save
 	// that disk after the run for host-side checks.
 	std::string hd_out[4];
+	// --drive1-out= to --drive4-out=PATH save that floppy's WOZ after the run,
+	// with whatever the machine wrote to it (use --writable).
+	std::string floppy_out[4];
 	const char *const disk_names[] = {"hd1", "hd2", "profile1", "profile2"};
 	// --slotN=CARD puts empty, block, profile1 (the ProFile card with
 	// --profile1's disk), profile2 or mouse in slot N, as the OSD's Slot options do; the
@@ -79,6 +82,7 @@ int main(int argc, char **argv) {
 	bool mouse_trace = false, key_test = false, warm_reset = false, to_menu = false, disk_trace = false, trace_all = false;
 	bool plus_keymap = false;  // Apple /// Plus keyboard: separate DELETE key
 	bool ram_128k = false;     // 128 KiB memory board instead of 256 KiB
+	bool ram_512k = false;     // the ON THREE 512K board, banks 7-14 in SDRAM
 	bool soshdboot = false;    // the built-in soshdboot ROM instead of Apple's
 	bool alpha_lock = false;   // Alpha Lock down from the start, locked through a reset
 	// --check-font: after --to-menu, the character generator must hold the set
@@ -90,6 +94,8 @@ int main(int argc, char **argv) {
 	// With --mouse-card, mouse:DX:DY is a host mouse report (Y counts upward),
 	// mouse:DX:DY:N is N of them a sixtieth of a second apart, and button:1 or
 	// button:0 presses or releases its button. One unit is one count.
+	// disk1:PATH to disk4:PATH mounts another WOZ in that floppy drive, as the
+	// OSD does, and disk1:- ejects it; --driveN-out then saves the new disk.
 	std::string keys, keys_after;
 	bool writable = false;  // mount images read-write, as Main does for writable sources
 	unsigned sd_delay = 0;
@@ -109,6 +115,8 @@ int main(int argc, char **argv) {
 		if (option.rfind("--sd-delay=", 0) == 0) sd_delay = std::strtoul(argv[i] + 11, nullptr, 10);
 		for (unsigned drive = 1; drive < 4; ++drive)
 			if (option.rfind("--drive" + std::to_string(drive + 1) + "=", 0) == 0) drive_path[drive] = option.substr(9);
+		for (unsigned drive = 0; drive < 4; ++drive)
+			if (option.rfind("--drive" + std::to_string(drive + 1) + "-out=", 0) == 0) floppy_out[drive] = option.substr(13);
 		for (unsigned disk = 0; disk < 4; ++disk) {
 			const std::string name = std::string("--") + disk_names[disk];
 			if (option.rfind(name + "=", 0) == 0) drive_path[4 + disk] = option.substr(name.size() + 1);
@@ -141,6 +149,7 @@ int main(int argc, char **argv) {
 		if (option == "--mouse-card") slot_card[3] = 4;
 		if (option == "--mouse-trace") mouse_trace = true;
 		if (option == "--ram128k") ram_128k = true;
+		if (option == "--ram512k") ram_512k = true;
 		if (option == "--soshdboot") soshdboot = true;
 		if (option == "--alpha-lock") alpha_lock = true;
 		if (option == "--check-font") check_font = to_menu = true;
@@ -197,6 +206,7 @@ int main(int argc, char **argv) {
 	top.slot_cards = slot_card[0] | slot_card[1] << 3 | slot_card[2] << 6 | slot_card[3] << 9;
 	top.plus_keymap = plus_keymap;
 	top.ram_128k = ram_128k;
+	top.ram_512k = ram_512k;
 	top.soshdboot = soshdboot;
 	top.video_source = video_source;
 	top.video_monitor = video_monitor;
@@ -329,6 +339,10 @@ int main(int argc, char **argv) {
 	unsigned mouse_trace_count = 0;
 	bool mouse_button = false;
 	std::vector<ScreenDump> dump_script;
+	struct DiskSwap { unsigned long long cycle; unsigned drive; std::string path; };
+	std::vector<DiskSwap> swap_script;
+	std::size_t swap_index = 0;
+	unsigned swap_pulse = 0;
 	const unsigned long long second = 14318181ULL;
 	auto tap = [&](double at, uint8_t code, bool ext, int only = -1) {
 		const unsigned long long start = static_cast<unsigned long long>(at * second);
@@ -421,6 +435,11 @@ int main(int argc, char **argv) {
 						pos = comma == std::string::npos ? keys.size() + 1 : comma + 1;
 						if (k.rfind("wait", 0) == 0) { at += std::strtod(k.c_str() + 4, nullptr); continue; }
 						if (k.rfind("dump", 0) == 0) { dump_script.push_back({static_cast<unsigned long long>(at * second), "scripted"}); continue; }
+						if (k.size() > 6 && k.rfind("disk", 0) == 0 && k[4] >= '1' && k[4] <= '4' && k[5] == ':') {
+							swap_script.push_back({static_cast<unsigned long long>(at * second), unsigned(k[4] - '1'), k.substr(6)});
+							at += 0.5;
+							continue;
+						}
 						if (k.rfind("mouse:", 0) == 0 || k.rfind("button:", 0) == 0) {
 							int dx = 0, dy = 0, reports = 1;
 							if (k[0] == 'm') std::sscanf(k.c_str(), "mouse:%d:%d:%d", &dx, &dy, &reports);
@@ -488,6 +507,25 @@ int main(int argc, char **argv) {
 			if (dump_index < dump_script.size() &&
 			    clock_cycles >= dump_script[dump_index].cycle)
 				dump_screen(dump_script[dump_index++].label);
+			if (swap_pulse && --swap_pulse == 0) top.image_change = 0;
+			if (swap_index < swap_script.size() && clock_cycles >= swap_script[swap_index].cycle && !top.sd_ack) {
+				const DiskSwap &swap = swap_script[swap_index++];
+				std::vector<uint8_t> &image = disk_image[swap.drive];
+				image.clear();
+				if (swap.path != "-") {
+					std::ifstream input(swap.path, std::ios::binary);
+					image.assign(std::istreambuf_iterator<char>(input), {});
+					if (image.size() < 12 || std::string(image.begin(), image.begin() + 3) != "WOZ") {
+						std::fprintf(stderr, "FAIL: supply native WOZ or an image converted by Main: %s\n", swap.path.c_str());
+						return 1;
+					}
+				}
+				top.image_size = image.size();
+				top.image_change = 1 << swap.drive;
+				swap_pulse = 8;
+				std::printf("drive %u %s at %.2f s\n", swap.drive + 1, image.empty() ? "ejected" : swap.path.c_str(),
+				            static_cast<double>(clock_cycles) / second);
+			}
 		}
 		prepare_storage();
 		top.clk ^= 1;
@@ -632,6 +670,8 @@ int main(int argc, char **argv) {
 	std::printf("milestones bank_exit=%u reconfigure=%u disk_boot=%u bank_changes=%u\n",
 	            reached_bank_loop_exit, reached_reconfigure, reached_disk_boot,
 	            bank_changes);
+	std::fflush(stdout);
+	top.final();  // the bench's summaries, such as --ram512k's SDRAM traffic
 	if (to_menu) {
 		std::printf("to-menu: menu=%u sysfail=%u code=%02X\n", reached_menu,
 		            reached_system_failure, system_failure_code);
@@ -718,6 +758,12 @@ int main(int argc, char **argv) {
 		std::printf("memory %04X:", dump_addr);
 		for (unsigned i = 0; i < dump_len; ++i) std::printf(" %02X", read_system_byte((dump_addr + i) & 0x7fff));
 		std::printf("\n");
+	}
+	for (unsigned drive = 0; drive < 4; ++drive) {
+		if (floppy_out[drive].empty() || disk_image[drive].empty()) continue;
+		std::ofstream output(floppy_out[drive], std::ios::binary);
+		output.write(reinterpret_cast<const char *>(disk_image[drive].data()), disk_image[drive].size());
+		std::printf("drive %u saved to %s\n", drive + 1, floppy_out[drive].c_str());
 	}
 	for (unsigned disk = 0; disk < 4; ++disk) {
 		if (hd_out[disk].empty() || disk_image[4 + disk].empty()) continue;

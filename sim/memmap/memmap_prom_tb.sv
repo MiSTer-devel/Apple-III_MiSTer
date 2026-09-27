@@ -1,31 +1,33 @@
 `timescale 1ns / 1ps
 
-// Drives apple3_mmu, configured for Apple's memory boards, with vectors derived
+// Drives apple3_mmu, configured for each memory board, with vectors derived
 // from the address-decode PROM dumps and the schematic by prom_reference.py.
 module memmap_prom_tb;
 	logic [15:0] cpu_addr;
 	logic        cpu_read;
 	logic [7:0] environment, zero_page, bank_register, extended_bank;
-	logic native_mode, extended_active, ram_128k;
-	logic dma_cycle = 0;
+	logic native_mode, extended_active, ram_128k, ram_512k, bank_pa3;
+	logic [7:0] vector_bank;
+	logic       dma_cycle = 0;
 	wire dma_read_allowed, dma_write_allowed;
 	wire [15:0] bus_addr;
 	wire [18:0] ram_byte_addr;
 	wire [17:0] ram_word_addr;
-	wire ram_lane, ram_select, ram_read, ram_write_allowed, rom_read, io_select;
+	wire ram_lane, ram_external, ram_select, ram_read, ram_write_allowed, rom_read, io_select;
 	wire via_d_select, via_e_select, slot_rom_select;
 	wire [12:0] rom_addr;
 
-	apple3_mmu #(.RAM_BANKS(8)) dut (.*);
+	apple3_mmu dut (.*);
 
 	string path;
 	integer file, fields, vectors = 0, failures = 0;
 	logic [15:0] v_bus;
 	logic [18:0] v_flat;
 	logic [11:0] v_flags;
-	logic v_ext, v_read, v_native, v_128k;
-	logic [17:0] word;
-	logic        lane;
+	logic v_ext, v_read, v_native;
+	integer        v_board;
+	logic   [17:0] word;
+	logic          lane;
 
 	// prom_reference.py VECTOR_FLAGS
 	wire want_ramen = v_flags[0];
@@ -42,17 +44,17 @@ module memmap_prom_tb;
 		failures++;
 		if (failures <= 20)
 			$display(
-				"FAIL %s: %04x zp=%02x env=%02x bank=%02x ext=%b x=%02x read=%b native=%b 128k=%b -> bus %04x ram %05x sel=%b rd=%b wr=%b rom=%b io=%b/%b via=%b%b, expected bus %04x ram %05x flags %03x",
+				"FAIL %s: %04x zp=%02x env=%02x bank=%02x ext=%b x=%02x read=%b native=%b board=%0d -> bus %04x ram %05x sel=%b rd=%b wr=%b rom=%b io=%b/%b via=%b%b, expected bus %04x ram %05x flags %03x",
 				what,
 				cpu_addr,
 				zero_page,
 				environment,
-				bank_register,
+				vector_bank,
 				extended_active,
 				extended_bank,
 				cpu_read,
 				native_mode,
-				ram_128k,
+				v_board,
 				bus_addr,
 				ram_byte_addr,
 				ram_select,
@@ -82,12 +84,12 @@ module memmap_prom_tb;
 				cpu_addr,
 				zero_page,
 				environment,
-				bank_register,
+				vector_bank,
 				v_ext,
 				extended_bank,
 				v_read,
 				v_native,
-				v_128k,
+				v_board,
 				v_bus,
 				v_flat,
 				v_flags
@@ -97,7 +99,12 @@ module memmap_prom_tb;
 			extended_active = v_ext;
 			cpu_read        = v_read;
 			native_mode     = v_native;
-			ram_128k        = v_128k;
+			ram_128k        = (v_board == 1);
+			ram_512k        = (v_board == 2);
+			// The MMU takes the latch's word: the X byte while one is latched.
+			// The 512K board reads PA3 at the VIA.
+			bank_register   = (v_ext && extended_bank[7]) ? {4'h0, extended_bank[3:0]} : vector_bank;
+			bank_pa3        = vector_bank[3];
 			#1;
 			if (bus_addr !== v_bus) fail("bus address");
 			if (want_ramen && want_populated && ram_byte_addr !== v_flat) fail("RAM address");

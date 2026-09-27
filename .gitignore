@@ -58,6 +58,8 @@ lint/gen/
 *.2mg
 *.hdv
 *.woz
+# Built from tools/sos512k; holds only this repository's code.
+!releases/SOS512K.po
 
 # --- Local research material (manuals, ROMs, disk images, reference sources) ---
 research/

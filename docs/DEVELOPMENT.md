@@ -229,6 +229,7 @@ passes on a fresh clone.
 | `APPLE3_DISK_PROM` | `341-0028.bin`, 256 bytes | P6 comparison in `sim/disk/run.sh` | [archive.org `AppleIIIROMs`](https://archive.org/details/AppleIIIROMs) |
 | `APPLE3_PLUS_PROM` | `342-0145-A.bin` | interlace comparison in `sim/accuracy/run.sh` | the same archive.org item |
 | `APPLE3_EURO_PROM` | `AppleIII_341-0060.bin` | 50 Hz comparison in `sim/accuracy/run.sh` | [asimov `rom_images/apple3`](https://mirrors.apple2.org.za/ftp.apple.asimov.net/emulators/rom_images/apple3/) |
+| `APPLE3_PROM_512K_DIR` | directory with `C11_512K.bin`, `C12_512K.bin` and `C13_512K.bin` | the 512K third of `sim/memmap/run.sh` | the same asimov directory, `Apple3_512k_ram_card_proms.zip` |
 
 The simulator mounts **WOZ images only**; on hardware Main converts the other
 formats. Convert a DSK, PO or NIB with the companion Main's
@@ -242,6 +243,7 @@ The individual runners, which `make` calls:
 bash sim/accuracy/run.sh                # documentation-derived checks
 ./sim/disk/run.sh                       # P6, WOZ parser/writeback, drive timing
 ./sim/memmap/run.sh                     # memory map against the decoder PROMs, real-CPU boundary reads and writes
+./sim/sdram/run.sh                      # SDRAM controller against a checking chip model
 ./sim/joystick/run.sh                   # joystick read methods at every position
 ./sim/timing/run.sh                     # CPU peripheral waits, RDY, RMW and NMI
 ./sim/blockdev/run.sh                   # block card registers, firmware, real-CPU driver calls
@@ -275,7 +277,10 @@ MiSTer screenshot shows; the text dumps decode display memory instead.
 16-bit mono WAV file at 47,727 Hz, one sample every 300 master clocks.
 `--video=color` or `--video=mono` takes it from that [video source](VIDEO_SOURCES.md),
 and `--monitor=green`, `amber` or `tv` from that monitor on it.
-`--ram128k` runs the 128 KiB memory board.
+`--ram128k` runs the 128 KiB memory board, and `--ram512k` ON THREE's 512K
+board, with banks 7-14 in `apple3_sdram` and the SDRAM model; the bench then
+checks the core's external-memory contract on every cycle and prints the
+SDRAM traffic at the end ([external memory](EXTERNAL_MEMORY.md)).
 `--mouse-card` is `--slot4=mouse` for the [mouse card](MOUSE.md), and the `--keys`
 script then takes `mouse:DX:DY` for a host mouse report, `mouse:DX:DY:N` for N
 of them a sixtieth of a second apart, and `button:1` or `button:0` for its
@@ -308,7 +313,9 @@ and adds write-mode bursts with their track positions. `--keys=` types a script
 once `--keys-after=TEXT` is on screen, for example
 `--keys=text:d,wait3,text:f,wait3,text:.d1,enter,text:wbfmt,enter,wait3,text:y,wait40,dump`
 to run SOS's Format a Volume (tokens: `enter`, `esc`, `up`, `down`, `left`,
-`right`, `del`, `bs`, `space`, `text:...`, `waitN` seconds, `dump` the text screen). `--writable` mounts images
+`right`, `del`, `bs`, `space`, `text:...`, `waitN` seconds, `dump` the text screen,
+`disk1:PATH` to `disk4:PATH` mount another WOZ as the OSD does and `disk1:-` ejects;
+`--drive1-out=PATH` to `--drive4-out` save a floppy after the run). `--writable` mounts images
 read-write and `--sd-write-delay=N` slows saved blocks. `--keytest` drives System Utilities with
 injected PS/2 keys and decodes the text page after each, and `--plus-keymap`
 runs the machine with the Apple /// Plus keyboard selected. A `--keys` script

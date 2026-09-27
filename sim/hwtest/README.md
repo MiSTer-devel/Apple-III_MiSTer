@@ -87,9 +87,10 @@ boundaries is the early-fetch fault.
 
 Writes through one view of memory and reads through another, as the decoder
 PROMs of Apple's boards lay the map out ([memory map](../../docs/MEMORY_MAP.md)).
-It finds the memory size from bank 3, shows it, and shows `P` or `F` under each
-group's number. The expected screen is `MAP 256K 123456789A` or `MAP 128K ...`
-with `PPPPPPPPPP.` below; the full stop marks the end of the run. It is three
+It finds the memory size from banks 8 and 3, shows it, and shows `P` or `F`
+under each group's number. The expected screen is `MAP 256K 123456789A` or
+`MAP 128K ...` with `PPPPPPPPPP.` below, or `MAP 512K 123456789AB` with
+`PPPPPPPPPPP.`; the full stop marks the end of the run. It is three
 blocks long: the ROM loads block 0, which reads the other two through the ROM's
 BLOCKIO.
 
@@ -106,11 +107,21 @@ BLOCKIO.
 | 9 | An opcode fetched from zero page `$1A` latches its X byte: a PLA at `$00FF` pulls through `$81` |
 | A | A zero page register of `$F0` or `$FF` reads the ROM and the VIA |
 
-Cores before the PROM-backed map show `PPFFPPFFFF.`. A 512 KiB machine lays
-some of these banks out differently and fails those groups.
+On the 512K board groups 3 to 6 check that board's map instead and group B is
+added:
+
+| Group | Checks |
+|---|---|
+| 3 | `$87` is banks 7 and 8, not `$8F` |
+| 4 | Nothing behind `$8E:8000`; the lower half of `$8E` is bank 14 |
+| 5 | Banks 0-14 through the bank register, 15 selects bank 0, and a byte and its sister byte in bank 10, one SDRAM word, are written apart |
+| 6 | X byte bits 6-4 are ignored, bit 3 selects banks 8-14 |
+| B | Bit 3 of the bank register comes from the VIA pin: the opcode after a store from bank 1 to bank 9 is bank 9's |
+
+Cores before the PROM-backed map show `PPFFPPFFFF.`.
 `./sim/run_core_boot.sh 200000000 memmap.woz --dump-mem=0580,10` shows the
-result row in simulation (`D0` is P, `C6` is F); add `--ram128k` for the other
-board.
+result row in simulation (`D0` is P, `C6` is F); add `--ram128k` or
+`--ram512k` for the other boards.
 
 ## `audio.po`: the three sound sources
 

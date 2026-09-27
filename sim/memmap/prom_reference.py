@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reference memory map of Apple's 128 and 256 KiB Apple /// boards, from their PROMs.
+"""Reference memory map of the Apple /// memory boards, from their PROMs.
 
 Nothing here comes from the RTL or from another emulator.  The decode is the
 contents of the PROM dumps; the wiring between them is drawing 050-0039-H
@@ -19,6 +19,13 @@ system bank = 7 on either board).  Every other access (relocated zero page,
 alternate stack, other bank register values, extended addressing) is then
 looked up by the cells it reaches.  ROM, VIA, I/O and RAM enables come from
 sheet 5's gates with 342-0045 and 342-0046.
+
+The ON THREE 512K board (--board 512) replaces C11-C13.  Its decoder,
+C11A, sits on the board and gives the chips a bank from the A9 latch, the
+X byte's bit 3 and the E VIA's PA3; the new C12 and C13 stay on the main
+board, C13 with its spare A11 input taken over.  No schematic of the board
+is known, so what it does with these outputs is inferred and stated at
+Board512.  Cells are then named by bank, not by chip.
 """
 
 import argparse
@@ -36,6 +43,11 @@ COMMON_PROMS = {
     "timing": ("342-0046", "8ca7d9e76627a1f4cf9f5592b378c4e51bdaa4ea4ad3d4c66ca6c000ae93af1b"),
 }
 BOARD_PROMS = {
+    512: {
+        "c11a": ("C11_512K", "abf9b5ebffc63c8ef05da637946cccf992c80b845c794cd8685c6a0af6f04c54"),
+        "c12": ("C12_512K", "f31c834f1c6aefd61fe77e1d6fcc9dd14db097ed20d6e347b70cf71d83ac431e"),
+        "c13": ("C13_512K", "745985d5ca9df76fad7ab193f56ca3cd335578f8f72ff609eb4ffe1c7b22b6de"),
+    },
     256: {
         "ras": ("342-0061", "32e3c28b6b81ee81acc6ce7f00ddaa9650f60fc55ca77f607ae2e0b7289c2868"),
         "cas": ("342-0063", "336ee3d21deffd4e728a46fd0fbbe98b166fccaff6da65b1c1f5ce592ca6ca1c"),
@@ -46,8 +58,9 @@ BOARD_PROMS = {
     },
 }
 
-SYSTEM_BANK = 7
 BANK_BYTES = 0x8000
+# C11A is a 512 x 8 part; every other PROM is 1,024 nibbles.
+PROM_BYTES = {"C11_512K": 512}
 
 
 def bit(value, n):
@@ -72,7 +85,7 @@ def load_proms(directories, kib):
         with open(path, "rb") as handle:
             data = handle.read()
         actual = hashlib.sha256(data).hexdigest()
-        if len(data) != 1024 or actual != digest:
+        if len(data) != PROM_BYTES.get(part, 1024) or actual != digest:
             raise ValueError(f"{path}: SHA-256 {actual}, expected {digest}")
         images[key] = data
     return images
@@ -107,6 +120,7 @@ class Board:
     def __init__(self, images, kib):
         self.kib = kib
         self.top_bank = 6 if kib == 256 else 2
+        self.system_bank = 7
         self.ras = images["ras"]
         self.cas = images["cas"]
         self.casb = images["casb"]
@@ -138,7 +152,7 @@ class Board:
         for abk in range(8):
             for abk4 in (0, 1):
                 for page in range(1, 256):
-                    strobed, uselb = self._strobes(page << 8, True, abk, abk4, bit(page, 7), bit(page, 0), 1)[:2]
+                    strobed, uselb = self._strobes(page << 8, True, abk, abk4, bit(page, 7), bit(page, 0), 1, 0, 0)[:2]
                     if len(strobed) == 1:
                         (where,) = strobed
                         if buses.setdefault(where[0], uselb) != uselb:
@@ -147,7 +161,7 @@ class Board:
             raise ValueError(f"USELB gives {buses}, 050-0044-B has rows A and C on bus A")
         return buses
 
-    def _strobes(self, bus, read, abk, abk4, pa15, pa8, nzpage):
+    def _strobes(self, bus, read, abk, abk4, pa15, pa8, nzpage, x3, pa3):
         a10, a11, a12, a13, a14, a15 = (bit(bus, n) for n in (10, 11, 12, 13, 14, 15))
         abk1, abk2, abk3 = bit(abk, 0), bit(abk, 1), bit(abk, 2)
         rw = 1 if read else 0
@@ -189,8 +203,10 @@ class Board:
             strobed = {(unit, chip) for (ras, cas), unit in UNIT_128.items() if pras[ras] and level[cas] == 0}
         return strobed, uselb, tuple(active)
 
-    def access(self, addr, read, zero_page=0, env=0x77, native=True, abk=0, abk4=0):
-        """One CPU cycle.  abk/abk4 are the outputs of the A9 bank latch."""
+    def access(self, addr, read, zero_page=0, env=0x77, native=True, abk=0, abk4=0, x3=0, pa3=0):
+        """One CPU cycle.  abk/abk4 are the outputs of the A9 bank latch; x3
+        and pa3 are the 512K board's fourth bank bits, which Apple's boards
+        do not wire."""
         pa8 = bit(addr, 8)
         pa15 = bit(addr, 15)
         alt_stack = not bit(env, 2)
@@ -208,7 +224,7 @@ class Board:
         s399 = bit(st, 0)
         ind = 1 - bit(st, 2)
 
-        strobed, uselb, active = self._strobes(bus, read, abk, abk4, pa15, pa8, nzpage)
+        strobed, uselb, active = self._strobes(bus, read, abk, abk4, pa15, pa8, nzpage, x3, pa3)
         cpu_cells = frozenset(cell for cell in strobed if self.bus_of[cell[0]] == uselb)
         other_cells = frozenset(strobed) - cpu_cells
 
@@ -251,6 +267,83 @@ class Board:
         return Access(bus, zpage, active, uselb, s399, ind, cpu_cells, other_cells, ramen, ram_to_bus, wramen, romsel, bool(ffdx), bool(ffex), io_space, c0xx)
 
 
+class Board512(Board):
+    """The main logic board with the ON THREE 512K board.
+
+    From the dumps: C11A's inputs are ABK4 and -ZPAGE (A0 and A6, used only
+    together: IND), the X byte's bit 3 (A1), -AY (A2), PA15 (A3), ABK1 (A4),
+    PA3 (A5, the jumper at B4 pin 5), ABK3 (A7) and ABK2 (A8).  With IND the
+    X byte selects the pair and PA15 adds one; otherwise ABK1-3 and PA3 name
+    the bank.  O2, O3, O6 and O5 with O1 encode Q = bank + 1 (mod 16), so
+    the system bank is Q = 0, and bank register 15 gives Q = 1 like the $8F
+    window.  O4 is 0 exactly for a pair access, which is what 342-0061 puts
+    on PRAS0,3, so it is taken as PRAS0,3 for C12 and C13.  C13's A1, unused
+    by 342-0063, is taken as O5 (Q >= 8): with it every bank the board has
+    strobes a CAS, and only the upper half of $8E, the system bank's place,
+    strobes none, as the last pair's upper half on Apple's boards.  It is also
+    the half of the board: ON THREE built half of it from 256K chips and half
+    from the 64K chips of the owner's old board (ATUNC, August 1988), and
+    Q 0-7 are the old board's banks, for which C13 then decodes as 342-0063.
+
+    Inferred: C12's CAS0 and CAS3 strobe the system bank (they are exactly the
+    accesses outside $2000-$9FFF that are not pairs) and C13's lines the bank
+    Q names, at the offsets of the documented map.  PRAS1,2 moves only USELB,
+    which a map by bank does not need.
+    """
+
+    def __init__(self, images):
+        self.kib = 512
+        self.top_bank = 14
+        self.system_bank = 15
+        self.c11a = images["c11a"]
+        self.c12 = images["c12"]
+        self.c13 = images["c13"]
+        self.status = images["status"]
+        self.io = images["io"]
+        self.timing = images["timing"]
+        # A cell here is (data bus, flat address): the CPU's is on USELB's bus.
+        self.bus_of = {0: 0, 1: 1}
+        for a in range(512):
+            if self.c11a[a] != self.c11a[(a & ~0x41) | ((a & 1) << 6) | ((a >> 6) & 1)]:
+                raise ValueError("C11A treats ABK4 and -ZPAGE differently")
+
+    def c11a_bank(self, abk, abk4, nzpage, pa15, x3, pa3):
+        """Bank C11A gives the chips, and its PRAS0,3 and C13 A1 outputs."""
+        o = self.c11a[
+            (abk4 << 0) | (x3 << 1) | (pa15 << 3) | (bit(abk, 0) << 4) | (pa3 << 5) | (nzpage << 6) | (bit(abk, 2) << 7) | (bit(abk, 1) << 8)
+        ]
+        q3 = bit(o, 5)
+        q2 = 1 - bit(o, 1) if q3 else bit(o, 6)
+        q = (q3 << 3) | (q2 << 2) | (bit(o, 3) << 1) | bit(o, 2)
+        return (q - 1) % 16, bit(o, 4), q3
+
+    def _strobes(self, bus, read, abk, abk4, pa15, pa8, nzpage, x3, pa3):
+        a = [bit(bus, n) for n in range(16)]
+        rw = 1 if read else 0
+        bank, pras03, a1 = self.c11a_bank(abk, abk4, nzpage, pa15, x3, pa3)
+        c = self.c13[(a[14] << 8) | (bit(abk, 2) << 7) | (bit(abk, 1) << 6) | (bit(abk, 0) << 5) | (pras03 << 3) | (a[15] << 2) | (a1 << 1) | a[13]]
+        d = self.c12[(pras03 << 9) | (1 << 8) | (bit(abk, 1) << 7) | (rw << 4) | (a[15] << 3) | (a[14] << 2) | (a[13] << 1) | a[11]]
+        level = {"cas0": bit(d, 0), "cas3": bit(d, 3), "cas1": bit(c, 2), "cas2": bit(c, 3), "cas46": bit(c, 0), "cas57": bit(c, 1)}
+        active = tuple(name for name, low in level.items() if low == 0)
+        uselb = bit(d, 1)
+        system = [name for name in active if name in ("cas0", "cas3")]
+        banked = [name for name in active if name not in ("cas0", "cas3")]
+        if system and banked:
+            raise AssertionError(f"{bus:04x} strobes C12 and C13 lines together: {active}")
+        strobed = set()
+        if system:
+            strobed.add((uselb, self.system_bank * BANK_BYTES + (bus & 0x7FFF)))
+            if len(system) == 2:
+                # The sister byte, on the other bus.
+                strobed.add((1 - uselb, self.system_bank * BANK_BYTES + ((bus ^ 0x0C00) & 0x7FFF)))
+        elif banked:
+            if bank == self.system_bank:
+                raise AssertionError(f"{bus:04x} reaches the system bank through C13")
+            offset = (bus & 0x7FFF) if pras03 == 0 else ((bus - 0x2000) & 0x7FFF)
+            strobed.add((uselb, bank * BANK_BYTES + offset))
+        return strobed, uselb, active
+
+
 class Reference:
     def __init__(self, board):
         self.board = board
@@ -260,14 +353,14 @@ class Reference:
             for addr in range(0x2000, 0xA000):
                 self._name(addr, bank, bank * BANK_BYTES + addr - 0x2000)
         for addr in list(range(0x0000, 0x2000)) + list(range(0xA000, 0x10000)):
-            self._name(addr, 0, SYSTEM_BANK * BANK_BYTES + (addr & 0x7FFF))
+            self._name(addr, 0, board.system_bank * BANK_BYTES + (addr & 0x7FFF))
         if len(self.names) != bytes_expected:
             raise AssertionError(f"documented map reaches {len(self.names)} cells, expected {bytes_expected}")
 
     def _name(self, addr, bank, flat):
         # ROM and I/O off, so every address is RAM.
-        write = self.board.access(addr, False, env=0x34, abk=bank)
-        read = self.board.access(addr, True, env=0x34, abk=bank)
+        write = self.board.access(addr, False, env=0x34, abk=bank & 7, pa3=bank >> 3)
+        read = self.board.access(addr, True, env=0x34, abk=bank & 7, pa3=bank >> 3)
         if len(write.cpu_cells) != 1 or write.other_cells:
             raise AssertionError(f"write to {addr:04x} bank {bank} strobes {write.cas}")
         if read.cpu_cells != write.cpu_cells:
@@ -297,17 +390,20 @@ class Reference:
 
 
 def latch_state(bank_register, xbyte):
-    """A9 (LS399) outputs.  Word 0 = BCKSW1-3 and ground, word 1 = DA0-DA2 and S5D (+5 V)."""
+    """A9 (LS399) outputs.  Word 0 = BCKSW1-3 and ground, word 1 = DA0-DA2 and S5D (+5 V).
+
+    The 512K board's X byte bit 3 is latched with it; PA3 is the VIA pin."""
+    pa3 = (bank_register >> 3) & 1
     if xbyte is not None and xbyte & 0x80:
-        return {"abk": xbyte & 7, "abk4": 1}
-    return {"abk": bank_register & 7, "abk4": 0}
+        return {"abk": xbyte & 7, "abk4": 1, "x3": (xbyte >> 3) & 1, "pa3": pa3}
+    return {"abk": bank_register & 7, "abk4": 0, "x3": 0, "pa3": pa3}
 
 
-def describe(flat):
+def describe(flat, system_bank):
     if flat is None:
         return "no RAM"
     bank, offset = divmod(flat, BANK_BYTES)
-    return f"S:{offset:04x}" if bank == SYSTEM_BANK else f"{bank}:{offset:04x}"
+    return f"S:{offset:04x}" if bank == system_bank else f"{bank}:{offset:04x}"
 
 
 def page_runs(ref, pages, **state):
@@ -321,7 +417,7 @@ def page_runs(ref, pages, **state):
         if key != previous:
             runs.append((addr, flat))
             previous = key
-    return " ".join(f"{addr:04x}>{describe(flat)}" for addr, flat in runs)
+    return " ".join(f"{addr:04x}>{describe(flat, ref.board.system_bank)}" for addr, flat in runs)
 
 
 def check_page_granularity(ref):
@@ -338,17 +434,24 @@ def check_page_granularity(ref):
 
 def report(ref, out):
     board = ref.board
-    name = "5 V / 256 KiB" if board.kib == 256 else "12 V / 128 KiB"
+    name = {256: "5 V / 256 KiB", 128: "12 V / 128 KiB", 512: "ON THREE 512K"}[board.kib]
     out.write(f"{name} board, CPU accesses, from the PROM dumps\n\n")
     out.write(f"documented map: {len(ref.names)} distinct cells, one per byte, no collisions\n\n")
 
-    out.write("bank register (VIA PA0-PA2 only; PA3 is not connected)\n")
-    for bank in range(8):
-        out.write(f"  {bank}: {page_runs(ref, range(0x02, 0x100), abk=bank)}\n")
-
-    out.write("\nextended addressing (latch word 1: DA0-DA2 and +5 V; DA3-DA6 are not connected)\n")
-    for low in range(8):
-        out.write(f"  $8{low:X}/$8{low + 8:X}: {page_runs(ref, range(0x01, 0x100), abk=low, abk4=1)}\n")
+    if board.kib == 512:
+        out.write("bank register (PA0-PA2 through the latch, PA3 from the VIA pin)\n")
+        for bank in range(16):
+            out.write(f"  {bank:2}: {page_runs(ref, range(0x02, 0x100), abk=bank & 7, pa3=bank >> 3)}\n")
+        out.write("\nextended addressing (DA0-DA2 through the latch, DA3 on the board)\n")
+        for low in range(16):
+            out.write(f"  $8{low:X}: {page_runs(ref, range(0x01, 0x100), abk=low & 7, abk4=1, x3=low >> 3)}\n")
+    else:
+        out.write("bank register (VIA PA0-PA2 only; PA3 is not connected)\n")
+        for bank in range(8):
+            out.write(f"  {bank}: {page_runs(ref, range(0x02, 0x100), abk=bank)}\n")
+        out.write("\nextended addressing (latch word 1: DA0-DA2 and +5 V; DA3-DA6 are not connected)\n")
+        for low in range(8):
+            out.write(f"  $8{low:X}/$8{low + 8:X}: {page_runs(ref, range(0x01, 0x100), abk=low, abk4=1)}\n")
 
     out.write("\nsister byte on bus A while the CPU reads bus B (both CAS0 and CAS3 strobed)\n")
     paired = []
@@ -381,11 +484,14 @@ VECTOR_FLAGS = ("ramen", "ram_read", "ram_write", "rom", "io_space", "c0xx", "vi
 def vector_lines(ref):
     """Text vectors for memmap_prom_tb.sv.
 
-    addr zero_page environment bank_register ext_active xbyte read native ram_128k
+    addr zero_page environment bank_register ext_active xbyte read native board
     bus_addr flat flags
+
+    board is 0 for 256 KiB, 1 for 128 KiB and 2 for 512K.
     """
     lines = []
-    kib128 = 1 if ref.board.kib == 128 else 0
+    board_code = {256: 0, 128: 1, 512: 2}[ref.board.kib]
+    banks = 16 if ref.board.kib == 512 else 8
 
     def emit(addr, read, zero_page, env, bank_register, xbyte, native=True):
         state = latch_state(bank_register, xbyte)
@@ -405,7 +511,7 @@ def vector_lines(ref):
         flags = sum(1 << n for n, name in enumerate(VECTOR_FLAGS) if values[name])
         lines.append(
             f"{addr:04x} {zero_page:02x} {env:02x} {bank_register:02x} {1 if xbyte is not None else 0} {(xbyte or 0):02x} "
-            f"{1 if read else 0} {1 if native else 0} {kib128} {a.bus_addr:04x} {(flat or 0):05x} {flags:03x}"
+            f"{1 if read else 0} {1 if native else 0} {board_code} {a.bus_addr:04x} {(flat or 0):05x} {flags:03x}"
         )
 
     def offsets(page):
@@ -422,19 +528,20 @@ def vector_lines(ref):
 
     for read in (True, False):
         # Every page under every bank register value.  Bits 3-7 of the register are
-        # interrupt inputs and the Apple II switch; only PA0-PA2 reach the latch.
-        for bank_register in list(range(16)) + [0x42, 0xF5]:
+        # interrupt inputs and the Apple II switch; only PA0-PA2 reach the latch,
+        # and PA3 the 512K board.
+        for bank_register in list(range(16)) + [0x42, 0x4A, 0xF5, 0xFD]:
             for page in range(0x02, 0x100):
                 emit_page(page, read, 0x00, 0x34, bank_register, None)
         # Zero page and both stacks for every zero-page register value.
-        for bank_register in range(8):
+        for bank_register in range(banks):
             for zero_page in range(256):
                 emit_page(0x00, read, zero_page, 0x34, bank_register, None)
                 emit_page(0x01, read, zero_page, 0x34, bank_register, None)
                 emit_page(0x01, read, zero_page, 0x30, bank_register, None)
         # Extended addressing.  The latch can only hold an X byte while the zero
         # page register is $18-$1F, and then it ignores the bank register.
-        for xbyte in list(range(0x80, 0x90)) + [0x00, 0x07, 0x7F, 0x93, 0xF6, 0xFF]:
+        for xbyte in list(range(0x80, 0x90)) + [0x00, 0x07, 0x7F, 0x93, 0xF6, 0xFE, 0xFF]:
             for page in range(0x100):
                 emit_page(page, read, 0x1A, 0x77, 5, xbyte)
             for env in (0x73, 0x7F):
@@ -467,16 +574,18 @@ def main():
         action="append",
         help="directory holding PROM dumps; may be given more than once",
     )
-    parser.add_argument("--board", type=int, choices=(128, 256), default=256)
+    parser.add_argument("--board", type=int, choices=(128, 256, 512), default=256)
     parser.add_argument("--vectors", help="write bench vectors to this file")
     parser.add_argument("--report", action="store_true", help="print the derived map")
     args = parser.parse_args()
     directories = args.prom_dir or [
         os.environ.get("APPLE3_PROM_DIR", "research/docs/bitsavers/A3PROMs"),
         os.environ.get("APPLE3_PROM_12V_DIR", "research/roms/archive.org_AppleIIIROMs"),
+        os.environ.get("APPLE3_PROM_512K_DIR", "research/roms/asimov_rom_images_apple3/Apple3_512k_ram_card_proms"),
     ]
 
-    ref = Reference(Board(load_proms(directories, args.board), args.board))
+    images = load_proms(directories, args.board)
+    ref = Reference(Board512(images) if args.board == 512 else Board(images, args.board))
     check_page_granularity(ref)
     if args.report:
         report(ref, sys.stdout)

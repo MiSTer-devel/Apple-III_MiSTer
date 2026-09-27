@@ -17,6 +17,7 @@ sys/math.sv
 
 // Lint-only PLL boundary and GHDL-converted VHDL dependencies.
 lint/pll.sv
+lint/altddio_out.sv
 sim/gen/t65.v
 sim/gen/via6522.v
 
@@ -32,6 +33,7 @@ rtl/disk/woz/woz_floppy_controller.sv
 rtl/apple3_timing.sv
 rtl/apple3_mmu.sv
 rtl/apple3_ram.sv
+rtl/apple3_sdram.sv
 rtl/apple3_rom.sv
 rtl/apple3_extaddr.sv
 rtl/apple3_keyboard.sv

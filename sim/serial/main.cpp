@@ -8,7 +8,7 @@
 int main(int argc, char **argv) {
     Verilated::commandArgs(argc, argv);
     Vcore_tb top;
-    top.clk=0; top.reset=1; top.serial_rx=1;
+    top.clk=0; top.reset=1; top.serial_rx=1; top.ram_512k=0;
     top.serial_cts_n=0; top.serial_dsr_n=0; top.serial_dcd_n=0;
     top.image_change=0; top.image_size=0; top.image_readonly=1;
     top.ps2_key=0; top.probe_addr=(7<<14)|2;
