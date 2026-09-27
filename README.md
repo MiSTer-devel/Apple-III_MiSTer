@@ -185,8 +185,6 @@ Booting SOS needs a WOZ disk image.
 
 Existing partial implementations are noted where they provide a starting point.
 
-- [ ] **Validate audio** Verify implementation accuracy against research.
-
 - [ ] **Problock3 formatter.** The Utilities' Format a volume fails with error
       103 on the block card, because Problock3 has no formatter (control code
       $FE). `tools/blank_hd.py` makes formatted images meanwhile.
