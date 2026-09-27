@@ -22,7 +22,7 @@ sheet 5's gates with 342-0045 and 342-0046.
 
 The ON THREE 512K board (--board 512) replaces C11-C13.  Its decoder,
 C11A, sits on the board and gives the chips a bank from the A9 latch, the
-X byte's bit 3 and the E VIA's PA3; the new C12 and C13 stay on the main
+X byte's bit 3 and the bank register's PA3; the new C12 and C13 stay on the main
 board, C13 with its spare A11 input taken over.  No schematic of the board
 is known, so what it does with these outputs is inferred and stated at
 Board512.  Cells are then named by bank, not by chip.
@@ -392,7 +392,8 @@ class Reference:
 def latch_state(bank_register, xbyte):
     """A9 (LS399) outputs.  Word 0 = BCKSW1-3 and ground, word 1 = DA0-DA2 and S5D (+5 V).
 
-    The 512K board's X byte bit 3 is latched with it; PA3 is the VIA pin."""
+    The 512K board's fourth bits, the X byte's and PA3, are taken as latched with it.
+    PA3 only matters with no X byte latched, when it is the bank register's bit 3."""
     pa3 = (bank_register >> 3) & 1
     if xbyte is not None and xbyte & 0x80:
         return {"abk": xbyte & 7, "abk4": 1, "x3": (xbyte >> 3) & 1, "pa3": pa3}
@@ -439,7 +440,7 @@ def report(ref, out):
     out.write(f"documented map: {len(ref.names)} distinct cells, one per byte, no collisions\n\n")
 
     if board.kib == 512:
-        out.write("bank register (PA0-PA2 through the latch, PA3 from the VIA pin)\n")
+        out.write("bank register (PA0-PA3 through the latch)\n")
         for bank in range(16):
             out.write(f"  {bank:2}: {page_runs(ref, range(0x02, 0x100), abk=bank & 7, pa3=bank >> 3)}\n")
         out.write("\nextended addressing (DA0-DA2 through the latch, DA3 on the board)\n")

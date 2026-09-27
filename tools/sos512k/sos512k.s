@@ -15,10 +15,10 @@
 ; and the read gives 7; the 512K board takes four and gives 15.  That is
 ; where Apple's search then starts, finding bank 14 or bank 6 (or 2 with
 ; 128K) as before.  Like ON THREE's SOS BOOT 2.2 it also stores an opcode at
-; $2034 of bank 6.  The board takes the bank register's fourth bit around
-; the main board's bank latch, so when SOS 1.1-1.3's loader, running in bank
-; 14, selects bank 0 at $2031, its next opcode comes from bank 6; $AD there
-; is the LDA that SOS has at $2034, and SOS carries on.  The code goes where
+; $2034 of bank 6: $AD, the LDA that SOS 1.1-1.3 have there.  2.2's byte
+; suggests that on a real board the opcode after the loader's switch from
+; bank 14 to bank 0 came from bank 6; the core latches all four bank bits, so
+; there the byte is never fetched.  The code goes where
 ; the boot block has room: its header text, which nothing reads, the spaces
 ; after the kernel's name, the zeros at its end, and seven bytes freed in
 ; Apple's setup at $A078 by dropping loads the search loop makes redundant.
@@ -163,15 +163,7 @@ waitkey:
         lda #probe_end-probe
         jsr find
         bcc @apple
-        ldx #<bank6fix          ; 2.2 and later plant bank 6's byte; 2.0 did not
-        ldy #>bank6fix
-        lda #bank6fix_end-bank6fix
-        jsr find
-        bcc :+
         print ROW(18), onthree
-        jmp next
-:       print ROW(18), onthree20
-        print ROW(19), onthree20b
         jmp next
 
 @apple: ldx #<old_bytes         ; Apple's SOS BOOT 1.1, where the patch goes?
@@ -381,10 +373,6 @@ digit:  cmp #10
 probe:  .byte $A9, $0E, $8D, $EF, $FF, $8D, $00, $20
         .byte $A9, $06, $8D, $EF, $FF, $8D, $00, $20
 probe_end:
-; LDA #$FF, STA $2034: SOS BOOT 2.2's byte in bank 6, which 2.0 lacks.
-bank6fix:
-        .byte $A9, $FF, $8D, $34, $20
-bank6fix_end:
 
 title:  .byte "SOS 512K UPDATE", 0
 intro1: .byte "LETS A SOS DISK USE ALL 512K OF THE", 0
@@ -410,10 +398,6 @@ already:
         .byte "THIS DISK IS ALREADY UPDATED.", 0
 onthree:
         .byte "ALREADY 512K: ITS BOOT CHECKS FOR 512K.", 0
-onthree20:
-        .byte "ON THREE'S BOOT 2.0: SOS STOPS AT 512K.", 0
-onthree20b:
-        .byte "IT NEEDS 2.2; LEFT ALONE.", 0
 not_apple:
         .byte "NOT APPLE'S SOS BOOT: LEFT ALONE.", 0
 itself: .byte "THAT IS THIS DISK: SWAP IN YOURS.", 0

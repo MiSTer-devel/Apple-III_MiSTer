@@ -46,7 +46,7 @@ and asks the bench for the 128 KiB board and a reset to check its absent banks,
 then for the 512K board, whose banks 7-14 are in `apple3_sdram` and the SDRAM
 model: fifteen banks, bank register 15, the pairs through `$8E` and nothing
 behind it, both bytes of an SDRAM word, a zero page and stack in an upper bank,
-and bit 3 of the bank register arriving without the latch's delay. It fails
+and bit 3 of the bank register taking the latch's delay like bits 0-2. It fails
 with its phase number and the opcodes before the failure.
 
 See [the memory map](../../docs/MEMORY_MAP.md) for the sources, the findings and

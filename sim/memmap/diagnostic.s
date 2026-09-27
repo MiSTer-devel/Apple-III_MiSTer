@@ -442,21 +442,25 @@ big:
     bank 3
     expect $4010, $03
 
-    ; 19. The bank register's bit 3 comes from the VIA pin, not the latch: the
-    ;     opcode after a store from bank 1 to bank 9 is already bank 9's.
+    ; 19. The bank register's bit 3 goes through the latch with bits 0-2: the
+    ;     opcode after a store from bank 1 to bank 9 is still bank 1's, its
+    ;     operand bank 9's, as in phase 7.
     phase 19
     bank 9
     jsr copylag9
-    store $3005, $a2            ; bank 9: LDX #$99
+    store $3005, $a0            ; bank 9: LDY #$99
     store $3006, $99
     bank 1
     jsr copylag9                ; bank 1: LDX #$11
     ldx #0
+    ldy #0
     jmp $3000
 lag9back:
     cpx #$99
-    beq :+
-    jmp fail
+    bne :+
+    cpy #0
+    beq :++
+:   jmp fail
 :
 
     lda #$5a

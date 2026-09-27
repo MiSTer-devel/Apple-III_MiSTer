@@ -82,8 +82,7 @@ memory size from the bank register the boot block leaves (`SYSBANK:=BREG`),
 and Apple's boot block ("SOS BOOT 1.1") searches down from bank 6, so it never
 reports more than 256K. ON THREE's ("SOS BOOT 2.0", 1984, and "2.2", 1985)
 first marks bank 14 and then bank 6, which is the same cell on a 256K board,
-and hands SOS bank 14 if the mark survives (2.0 without the byte SOS needs in
-bank 6; [see below](#giving-a-disk-512k)). The same disk with Apple's boot
+and hands SOS bank 14 if the mark survives. The same disk with Apple's boot
 block put back boots at 512K using bank 6 and never touches banks 7-14. So a
 disk sees 512K only with ON THREE's boot block, which ON THREE put on all its
 products (Draw ON ///, Lazarus, Selector ///, BOS, the Disk of the Month) and
@@ -113,8 +112,8 @@ into the built-in drive and press RETURN, or put it in drive 2 and press 2.
 It changes block 0 and nothing else. It adds a 512K check of this repository's
 own to the disk's Apple boot block, so it carries no Apple or ON THREE code,
 and the updated disk still boots as before with 128K or 256K. It leaves alone
-a disk that already sees 512K, ON THREE's SOS BOOT 2.0 (see below), and any
-boot block that is not Apple's SOS BOOT 1.1 or 7.0. (7.0 has the same code
+a disk that already sees 512K, and any boot block that is not Apple's SOS
+BOOT 1.1 or 7.0. (7.0 has the same code
 and is on SOS 1.0-era disks.) After writing, it reads the block back to check
 it.
 
@@ -126,7 +125,7 @@ read the program records the head as on track 1, and the ROM steps it back.
 
 `tools/onthree_boot.py --patch` applies the same bytes to an image on a
 computer, and its table is what the tests check the update disk against.
-Given a donor image instead, the tool copies ON THREE's own SOS BOOT 2.2 from
+Given a donor image instead, the tool copies ON THREE's own boot block from
 it, for example from the SOS 1.3 System Utilities image above. `--check` says
 which boot block a disk has and what SOS makes of 512K with it. The tool takes
 DSK, DO, PO and 2MG images. Hard-disk images made for soshdboot need nothing,
@@ -138,14 +137,13 @@ register bits, so both writes land in the same byte and the read gives 7. The
 512K board decodes four bits and gives 15. Apple's own search then starts from
 that value and finds bank 14 at 512K, or bank 6 (2 with 128K) as before.
 
-The patch also stores `$AD` at `$2034` of bank 6, as ON THREE's 2.2 stores
-`$FF` there. SOS 1.1-1.3's loader runs in bank 14 when it selects bank 0, and
-on this board the opcode fetched next comes from bank 6
-([why](MEMORY_MAP.md#the-on-three-512k-board)). `$AD` is the opcode SOS has
-at `$2034` (`LDA $1E0A`), and the operands come from bank 0, so the
-instruction runs exactly as SOS wrote it. Without the byte, SOS stops at boot
-with 512K. That is what ON THREE's 2.0 does, which is why the tool will not
-use 2.0 as a donor. SOS 1.0's loader never changes banks from the window.
+The patch also stores `$AD` at `$2034` of bank 6, where ON THREE's 2.2 stores
+`$FF`. SOS 1.1-1.3's loader runs in bank 14 when it selects bank 0, and 2.2's
+byte suggests that on a real board the opcode fetched next came from bank 6
+([the timing question](MEMORY_MAP.md#the-on-three-512k-board)). `$AD` is the
+opcode SOS has at `$2034` (`LDA $1E0A`), so on such a board the instruction
+would run as SOS wrote it. The core latches all four bank bits, so it never
+fetches that byte.
 
 The code fits in parts of the block that nothing uses:
 
@@ -158,7 +156,7 @@ The code fits in parts of the block that nothing uses:
 The floppy image files in the Apple III DVD, asimov and apple3.org collections
 were counted, including each duplicate copy. 848 have SOS BOOT 1.1 and 31
 have 7.0, and every one of them matches the bytes the patch expects. Another
-321 already see 512K, and 4 (the Lazarus disks) have ON THREE's 2.0.
+325 already see 512K.
 
 In simulation, Apple's Business BASIC 1.23 disk at 512K starts with `FRE`
 191,385 and runs out of memory after five 32K arrays. Patched, or given ON

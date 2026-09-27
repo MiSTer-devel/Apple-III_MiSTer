@@ -6,7 +6,7 @@ module memmap_prom_tb;
 	logic [15:0] cpu_addr;
 	logic        cpu_read;
 	logic [7:0] environment, zero_page, bank_register, extended_bank;
-	logic native_mode, extended_active, ram_128k, ram_512k, bank_pa3;
+	logic native_mode, extended_active, ram_128k, ram_512k;
 	logic [7:0] vector_bank;
 	logic       dma_cycle = 0;
 	wire dma_read_allowed, dma_write_allowed;
@@ -102,9 +102,7 @@ module memmap_prom_tb;
 			ram_128k        = (v_board == 1);
 			ram_512k        = (v_board == 2);
 			// The MMU takes the latch's word: the X byte while one is latched.
-			// The 512K board reads PA3 at the VIA.
 			bank_register   = (v_ext && extended_bank[7]) ? {4'h0, extended_bank[3:0]} : vector_bank;
-			bank_pa3        = vector_bank[3];
 			#1;
 			if (bus_addr !== v_bus) fail("bus address");
 			if (want_ramen && want_populated && ram_byte_addr !== v_flat) fail("RAM address");

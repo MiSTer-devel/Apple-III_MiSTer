@@ -166,19 +166,30 @@ other outputs on A1, one behaves the same, one would put the system bank
 behind `$8E:8000`, and the rest leave banks unreachable.
 C12's CAS0 and CAS3 are taken as the system bank and C13's lines as the bank
 C11A names: they split the accesses exactly that way, outside and inside
-`$2000`..`$9FFF`. And because PA3 has its own input rather than going through
-the A9 latch like PA0-PA2, it is taken as the VIA pin itself: a store to the
-bank register changes bit 3 at once, while bits 0-2 still wait for the next
-read.
+`$2000`..`$9FFF`.
 
-ON THREE's own boot block bears this out. SOS 1.1-1.3's loader runs in the
-window, copies itself to bank 0 and then stores 0 to the bank register at
-`$2031`. On Apple's boards the next opcode, at `$2034`, still comes from the
-old bank, which holds the same code. On this board, leaving bank 14, bit 3
-drops at once and bits 0-2 do not, so that fetch comes from bank 6. There SOS
-has nothing, and the core then stops with a BRK. ON THREE's SOS BOOT 2.2 (1985)
-differs from 2.0 (1984) only by `LDA #$FF`, `STA $2034` with bank 6 selected.
-In the core, 2.0 disks stop at boot with 512K while 2.2 disks run.
+**PA3's timing** is taken from software, not from the board. PA3 has its own
+C11A input and does not pass through the A9 latch, so it could reach the
+decoder at once while PA0-PA2 wait for the next read. The core latches it with
+the other three bits instead, so a store to the bank register moves all four
+together.
+
+The software points both ways:
+
+- SOS 1.1-1.3's loader runs in the window, copies itself to bank 0 and stores
+  0 to the bank register at `$2031`. The opcode that follows, at `$2034`,
+  comes from the old bank, which holds the same code. If bit 3 dropped at once
+  when leaving bank 14, that fetch would come from bank 6 instead.
+- ON THREE's SOS BOOT 2.2 (1985) differs from 2.0 (1984) only by `LDA #$FF`,
+  `STA $2034` with bank 6 selected. That points at such a fetch.
+- ON THREE's BOS 1.0 (1993) switches banks the same way three bytes later, so
+  its fetch would be at `$2037`, where 2.2 puts nothing. Its guide describes
+  running on a 512K machine all the same.
+
+With the fetch from bank 6, BOS stopped at boot in the core, with a BRK from
+empty memory. With all four bits latched, BOS, 2.0 and 2.2 disks all boot at
+512K, and 2.2's byte is never fetched. Group B of `sim/hwtest/memmap.po`
+tells the two apart on a real board.
 
 | Access | 512K board |
 |---|---|
@@ -230,9 +241,10 @@ is how these went unnoticed. Everything else matched.
   dump of that part was found. The 128 KiB setting is the 12 V board; bank
   register 7 in particular may land elsewhere on the other one.
 * **The 512K board's own logic.** How it uses C11A's outputs, what drives
-  C13's A1 and C12's PRAS1,2, and PA3 bypassing the latch are inferred from
+  C13's A1 and C12's PRAS1,2, and PA3 having its own input are inferred from
   the dumps, not read from a schematic ([above](#the-on-three-512k-board)).
-  The bypass has the support of SOS BOOT 2.2's bank 6 byte.
+  When PA3 reaches the decoder is taken from BOS, which needs it latched;
+  SOS BOOT 2.2's byte in bank 6 suggests it arrives at once.
   ON THREE's `UPGRADE.TO.512K` disk, whose updaters put ON THREE's boot block
   on the owner's disks and patched several programs' own limits, has not been
   found ([what it did](EXTERNAL_MEMORY.md#the-upgrade-software)).

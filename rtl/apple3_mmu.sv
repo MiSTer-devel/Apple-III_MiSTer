@@ -19,9 +19,11 @@
 //
 // ram_128k selects Apple's 128 KiB board and ram_512k the ON THREE 512K
 // board, which replaces C11-C13 with its own decoder (docs/MEMORY_MAP.md).
-// Its PROM, C11A, takes the fourth bank bit twice: the X byte's from the
-// board and the bank register's straight from the E VIA's PA3 pin
-// (bank_pa3), which the board's jumper at B4 reads without the A9 latch.
+// Its PROM, C11A, takes the fourth bank bit twice, the X byte's and the
+// bank register's (PA3, from the board's jumper at B4). Both come from the
+// bank latch here with the other three bits, so a store to the bank
+// register reaches the map one read later for all four; ON THREE's BOS
+// kernel only boots with 512K that way (docs/MEMORY_MAP.md).
 // The system bank is bank 7 on Apple's boards and bank 15 on the 512K one;
 // ram_external marks banks 7-14 of the latter, which live outside the
 // FPGA's block RAM.
@@ -34,7 +36,6 @@ module apple3_mmu (
 	// The bank latch's outputs (apple3_extaddr): the word it holds, and
 	// whether that word is an X byte.
 	input logic [ 7:0] bank_register,
-	input logic        bank_pa3,
 	input logic        native_mode,
 	input logic        extended_active,
 	input logic [ 7:0] extended_bank,
@@ -122,7 +123,7 @@ module apple3_mmu (
 		// the $8F window; the upper half of $8E would be the system bank, but
 		// C13 then strobes no CAS, as on Apple's boards.
 		top_bank    = ram_512k ? 4'd14 : ram_128k ? 4'd2 : 4'd6;
-		window_bank = ram_512k ? {bank_pa3, bank_register[2:0]} : (bank_register[3:0] & 4'h7);
+		window_bank = bank_register[3:0] & bank_mask;
 		window      = (ram_addr >= 16'h2000) && (ram_addr < 16'ha000);
 		present     = 1'b1;
 

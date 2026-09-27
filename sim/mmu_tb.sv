@@ -5,9 +5,8 @@ module mmu_tb;
 	logic        cpu_read;
 	logic [7:0] environment, zero_page, bank_register, extended_bank;
 	logic native_mode, extended_active, ram_128k;
-	// The ON THREE 512K board; bank_pa3 is the VIA pin its jumper reads.
+	// The ON THREE 512K board.
 	logic ram_512k = 1'b1;
-	logic bank_pa3 = 1'b0;
 	logic dma_cycle = 0;
 	wire dma_read_allowed, dma_write_allowed;
 	wire [15:0] bus_addr;
@@ -30,7 +29,6 @@ module mmu_tb;
 		.environment,
 		.zero_page,
 		.bank_register,
-		.bank_pa3         (bank_register[3]),
 		.native_mode,
 		.extended_active,
 		.extended_bank,
@@ -88,10 +86,9 @@ module mmu_tb;
 			(ram_read || ram_write_allowed))
 			$fatal(
 				1,
-				"512K %04x bank=%02x pa3=%b x=%02x/%b -> %05x read=%b write=%b external=%b",
+				"512K %04x bank=%02x x=%02x/%b -> %05x read=%b write=%b external=%b",
 				a,
 				bank_register,
-				bank_pa3,
 				extended_bank,
 				extended_active,
 				ram_byte_addr,
@@ -140,22 +137,22 @@ module mmu_tb;
 		expect_addr(16'ha000, 19'h7a000);
 		expect_addr(16'hffff, 19'h7ffff);
 
-		// Window bank selection.  Bit 3 is PA3 at the pin, not the latch's,
-		// and bank register 15 is bank 0 (C11A gives the chips bank + 1).
-		bank_register = 8'h06;
-		bank_pa3      = 1'b1;
-		expect_512k(16'h3456, 19'h71456, 1, 1);
+		// Window bank selection: all four latched bits, the VIA's input bits
+		// above them ignored, and bank register 15 is bank 0 (C11A gives the
+		// chips bank + 1).
 		bank_register = 8'h0e;
-		bank_pa3      = 1'b0;
+		expect_512k(16'h3456, 19'h71456, 1, 1);
+		bank_register = 8'hfe;
+		expect_512k(16'h3456, 19'h71456, 1, 1);
+		bank_register = 8'h06;
 		expect_512k(16'h3456, 19'h31456, 1, 0);
 		bank_register = 8'h07;
 		expect_512k(16'h9fff, 19'h3ffff, 1, 1);
-		bank_pa3 = 1'b1;
+		bank_register = 8'h0f;
 		expect_512k(16'h2000, 19'h00000, 1, 0);
 		expect_512k(16'ha000, 19'h7a000, 1, 0);
-		bank_register = 8'h00;
+		bank_register = 8'h08;
 		expect_512k(16'h2000, 19'h40000, 1, 1);
-		bank_pa3 = 1'b0;
 
 		// Relocated zero page and adjacent-stack modes.
 		bank_register = 8'h04;

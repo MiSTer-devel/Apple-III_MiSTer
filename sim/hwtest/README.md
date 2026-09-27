@@ -116,7 +116,7 @@ added:
 | 4 | Nothing behind `$8E:8000`; the lower half of `$8E` is bank 14 |
 | 5 | Banks 0-14 through the bank register, 15 selects bank 0, and a byte and its sister byte in bank 10, one SDRAM word, are written apart |
 | 6 | X byte bits 6-4 are ignored, bit 3 selects banks 8-14 |
-| B | Bit 3 of the bank register comes from the VIA pin: the opcode after a store from bank 1 to bank 9 is bank 9's |
+| B | Bit 3 of the bank register goes through the latch like bits 0-2: after a store from bank 1 to bank 9, the next opcode is bank 1's and its operand bank 9's. A board that took PA3 at once would fail it. |
 
 Cores before the PROM-backed map show `PPFFPPFFFF.`.
 `./sim/run_core_boot.sh 200000000 memmap.woz --dump-mem=0580,10` shows the

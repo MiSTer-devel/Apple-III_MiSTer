@@ -6,13 +6,12 @@ Apple's boot block ("SOS BOOT 1.1", "7.0") searches down from bank 6 and never
 reports more than 256K; ON THREE's ("SOS BOOT 2.0", 1984, "2.2", 1985) checks
 bank 14 against bank 6 first and hands SOS bank 14 on a 512K board. Putting it
 on a disk is what ON THREE's upgrade did to the owner's disks
-(docs/EXTERNAL_MEMORY.md). Only 2.2 also plants the byte SOS 1.1-1.3 need in
-bank 6 (BANK6_FIX below), so 2.0 is refused as a donor.
+(docs/EXTERNAL_MEMORY.md).
 
 --patch needs nothing else: it adds a 512K check of this repository's own to
 the disk's Apple boot block in place, the same patch the SOS 512K update
 disk (tools/sos512k) applies on the machine. Without --patch the tool copies
-ON THREE's boot block from a donor image that has 2.2, such as the "SOS 1.3
+ON THREE's boot block from a donor image that has it, such as the "SOS 1.3
 System Utilities" image (volume III.UTILS.01) that apple3.org and asimov
 carry; that code is not in this repository.
 
@@ -97,20 +96,16 @@ class Image:
 # 14, then bank 6, which is the same cell on Apple's 256K board. ON THREE's
 # loaders and Rob Justice's soshdboot loader open their bank search with it.
 PROBE_512K = bytes.fromhex("a90e8defff8d0020a9068defff8d0020")
-# LDA #$FF, STA $2034 (in bank 6): what SOS BOOT 2.2 added to 2.0. The board
-# takes PA3 around the bank latch, so when SOS 1.1-1.3's loader, running in
-# bank 14, selects bank 0 at $2031, its next opcode comes from $2034 of bank
-# 6 (PA3 already low, the other bits not yet changed). Without a byte there
-# SOS stops at boot with 512K, as 2.0's disks do on this core.
-BANK6_FIX = bytes.fromhex("a9ff8d3420")
 
 
 # The patch to Apple's SOS BOOT 1.1: offset in block 0, Apple's bytes, ours.
 # It probes with bank registers 15 and 7, which Apple's boards (three bank
 # register bits) take as the same byte and the 512K board does not, and
-# leaves 15 or 7 where Apple's search starts. Like 2.2 it also puts an
-# opcode at $2034 of bank 6: $AD, the one SOS has there, so that fetch runs
-# SOS's own LDA. The code lives in the header text, the spaces after the
+# leaves 15 or 7 where Apple's search starts. Like ON THREE's 2.2 it also
+# puts an opcode at $2034 of bank 6: $AD, the LDA SOS 1.1-1.3 have there, in
+# case a real board fetches the opcode after the loader's switch from bank 14
+# to bank 0 from bank 6, as 2.2's own byte there suggests. The core latches
+# all four bank bits, so it never does. The code lives in the header text, the spaces after the
 # kernel's name and the unused tail, called from Apple's setup at $A078,
 # rewritten with its search loop kept and two redundant loads dropped.
 # tools/sos512k/sos512k.s carries the same table, and
@@ -151,7 +146,6 @@ def patch_state(block0):
 MEMORY = {
     "512k": "sees 512K",
     "256k": "256K at most",
-    "stops": "SOS 1.1-1.3 stop at boot with 512K, as it lacks the bank 6 byte",
 }
 
 
@@ -160,14 +154,12 @@ def describe(block0):
     if patch_state(block0) == "patched":
         return "Apple's SOS boot block with the 512K patch", "512k"
     text = bytes(b & 0x7F for b in block0)
-    memory = "256k"
-    if PROBE_512K in block0:
-        memory = "512k" if BANK6_FIX in block0 else "stops"
+    memory = "512k" if PROBE_512K in block0 else "256k"
     version = re.search(rb"SOS BOOT\s+(\d+\.\d+)", text)
     if version:
         maker = "ON THREE" if b"ON THREE" in text else "Apple"
         return f"{maker} SOS BOOT {version.group(1).decode()}", memory
-    if memory != "256k":
+    if memory == "512k":
         return "a 512K-aware loader", memory
     return "no SOS boot block", memory
 
@@ -192,7 +184,7 @@ def install(donor_path, target_path, output_path):
     donor = Image(donor_path)
     boot, memory = describe(donor.block(0))
     if not (boot.startswith("ON THREE") and memory == "512k"):
-        sys.exit(f"{donor_path}: its boot block is {boot}: {MEMORY[memory]}; the donor must have ON THREE's 2.2")
+        sys.exit(f"{donor_path}: its boot block is {boot}, not ON THREE's")
     target = Image(target_path)
     current, _ = describe(target.block(0))
     if current == "no SOS boot block":

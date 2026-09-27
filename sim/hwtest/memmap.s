@@ -24,8 +24,9 @@
 ;   5  fifteen banks through the bank register; 15 selects bank 0; a byte
 ;      and its sister byte in bank 10, one SDRAM word, are written apart
 ;   6  X byte bits 6-4 are ignored and bit 3 selects banks 8-14
-;   B  bit 3 of the bank register comes from the VIA pin, not the latch: the
-;      opcode after a store from bank 1 to bank 9 is bank 9's
+;   B  bit 3 of the bank register goes through the latch like bits 0-2: the
+;      opcode after a store from bank 1 to bank 9 is bank 1's, its operand
+;      bank 9's
 ; The ROM loads block 0; the program reads blocks 1 and 2 with the ROM's
 ; BLOCKIO before it changes anything.
 
@@ -338,12 +339,14 @@ zpdecode:
         jmp bad
 :       jmp good
 
-; Group B, 512K.  From bank 1, a store of 9 to the bank register: PA3 reaches
-; the board at once, while bits 0-2, which do not change, go through the latch.
+; Group B, 512K.  Group 8 across bit 3: from bank 1, a store of 9 to the bank
+; register.  The core latches PA3 with bits 0-2, so the opcode that follows
+; is bank 1's LDX and its operand bank 9's; a board taking PA3 at once would
+; run bank 9's LDY instead.
 lag9:   lda #9
         sta BANK
         jsr copylag9
-        lda #$A2                ; bank 9: LDX #$99
+        lda #$A0                ; bank 9: LDY #$99
         sta $3005
         lda #$99
         sta $3006
@@ -351,9 +354,12 @@ lag9:   lda #9
         sta BANK
         jsr copylag9            ; bank 1: LDX #$11
         ldx #0
+        ldy #0
         jmp $3000
 lag9back:
         cpx #$99
+        bne :+
+        cpy #0
         bne :+
         jmp good
 :       jmp bad

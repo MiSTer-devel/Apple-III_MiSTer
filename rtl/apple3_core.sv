@@ -345,7 +345,6 @@ module apple3_core #(
 		.environment,
 		.zero_page,
 		.bank_register(latched_bank),
-		.bank_pa3     (bank_register[3]),
 		.native_mode,
 		.extended_active,
 		.extended_bank,

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """tools/onthree_boot.py on made-up images: no Apple or ON THREE code needed.
 
-A donor carries a stand-in ON THREE boot block (the 512K probe, 2.2's bank 6
-byte and a version string), the target a stand-in Apple one holding just the
-bytes the patch expects. Each is built in ProDOS order, DOS order and as a 2MG; the donor copy
+A donor carries a stand-in ON THREE boot block (the 512K probe and a version
+string), the target a stand-in Apple one holding just the bytes the patch
+expects. Each is built in ProDOS order, DOS order and as a 2MG; the donor copy
 and --patch must change exactly block 0 and report the result. With ca65, the
 patch table in tools/sos512k/sos512k.s must match the tool's.
 """
@@ -28,14 +28,12 @@ def tool(*args, check=True):
     return subprocess.run([sys.executable, TOOL, *args], capture_output=True, text=True, check=check)
 
 
-def boot_block(text, probe, fix=True):
+def boot_block(text, probe):
     block = bytearray(BLOCK)
     block[0:3] = b"\x4c\x6e\xa0"
     block[3:3 + len(text)] = text
     if probe:
         block[0x80:0x90] = onthree_boot.PROBE_512K
-        if fix:
-            block[0x90:0x95] = onthree_boot.BANK6_FIX
     return bytes(block)
 
 
@@ -130,15 +128,9 @@ def main():
             assert len(before) == len(after) and 0 < changed <= BLOCK, (form, changed)
             checks += 1
 
-            # The donor must really be ON THREE's 2.2, and the target a SOS disk.
+            # The donor must really be ON THREE's, and the target a SOS disk.
             refused = tool(target, donor, output, check=False)
-            assert refused.returncode != 0 and "must have ON THREE's 2.2" in refused.stderr, refused.stderr
-            old_donor = os.path.join(tmp, f"old.{form}")
-            with open(old_donor, "wb") as handle:
-                handle.write(image(volume(b"OLD", boot_block(b"SOS BOOT 2.0 (c) 1984 ON THREE", True, False)), form))
-            assert "SOS 1.1-1.3 stop at boot with 512K" in tool("--check", old_donor).stdout
-            refused = tool(old_donor, target, output, check=False)
-            assert refused.returncode != 0 and "must have ON THREE's 2.2" in refused.stderr, refused.stderr
+            assert refused.returncode != 0 and "not ON THREE's" in refused.stderr, refused.stderr
             checks += 1
 
             # --patch: Apple's bytes become ours, everything else stays.
