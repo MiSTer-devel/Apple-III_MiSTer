@@ -185,14 +185,11 @@ Booting SOS needs a WOZ disk image.
 
 Existing partial implementations are noted where they provide a starting point.
 
-- [ ] **Problock3 formatter.** The Utilities' Format a volume fails with error
-      103 on the block card, because Problock3 has no formatter (control code
-      $FE). `tools/blank_hd.py` makes formatted images meanwhile.
-
 - [ ] **External memory and optional 512 KiB RAM.** Build on the parameterized
       RAM/MMU support with an external-memory backend and a usable 512 KiB option.
       Preserve paired-byte reads and guest-visible memory timing, and budget for
-      future card RAM and disk buffers.
+      future card RAM and disk buffers. Keep 256 KiB RAM and below in BRAM, only use
+      SDRAM for 512 KiB mode.
 
 - [ ] **Microsoft SoftCard III.**
 
