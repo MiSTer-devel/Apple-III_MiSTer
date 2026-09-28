@@ -216,6 +216,39 @@ module rtc_accuracy_tb;
 		check(sampled == 8'hff, "RAM at 0E keeps all eight bits");
 		wr(5'h13, 8'hff);
 
+		// Each bit of 12 and 13 resets one counter or RAM byte, D0 the
+		// milliseconds to D7 the month. Apple's /// Plus dealer diagnostic
+		// resets them a bit at a time and expects all eight cleared.
+		for (integer i = 8; i < 16; i++) wr(5'(i), 8'h11);
+		wr(5'h13, 8'h04);
+		rd(5'h0a, sampled);
+		check(sampled == 8'h00, "RAM reset bit 2 clears the seconds RAM");
+		rd(5'h09, sampled);
+		check(sampled == 8'h11, "RAM reset bit 2 leaves the hundredths RAM");
+		rd(5'h0b, sampled);
+		check(sampled == 8'h11, "RAM reset bit 2 leaves the minutes RAM");
+		for (integer i = 0; i < 8; i++) wr(5'h13, 8'(1 << i));
+		sampled = 0;
+		for (integer i = 8; i < 16; i++) begin
+			rd(5'(i), year_latch);
+			sampled |= year_latch;
+		end
+		check(sampled == 8'h00, "RAM reset one bit at a time clears all eight bytes");
+		wr(2, 8'h10);
+		wr(3, 8'h45);
+		wr(4, 8'h12);
+		wr(5, 8'h04);
+		wr(5'h12, 8'h08);
+		rd(3, sampled);
+		check(sampled == 8'h00, "counter reset bit 3 clears the minutes");
+		rd(4, sampled);
+		check(sampled == 8'h12, "counter reset bit 3 leaves the hours");
+		wr(5'h12, 8'h20);
+		rd(5, sampled);
+		check(sampled == 8'h01, "counter reset bit 5 sets the day of week to 1");
+		rd(4, sampled);
+		check(sampled == 8'h12, "counter reset bit 5 leaves the hours");
+
 		// No year and no leap day: February always has 28 days.
 		wr(7, 8'h02);
 		wr(6, 8'h28);

@@ -477,7 +477,9 @@ module apple3_core #(
 		.port_b_o(e_pb_o),
 		.port_b_t(e_pb_ddr),
 		.port_b_i(e_pb_i),
-		.ca1_i   (!rtc_irq),
+		// The MM58167's INTERRUPT OUTPUT is a true-high signal, and SOS sets
+		// CA1 to a positive edge for it.
+		.ca1_i   (rtc_irq),
 		.ca2_o   (),
 		.ca2_i   (!keyboard_data_ready),
 		.ca2_t   (),

@@ -395,7 +395,9 @@ The MM58167 model has separate counter, comparison, interrupt and rollover-statu
 registers. GO clears fractions and seconds, rounding up at 40 seconds and carrying
 through the calendar. The 10 Hz interrupt includes whole-second rollover. A
 counter read arms a sticky rollover detector with a 150 us update window each
-millisecond; reading status returns and clears that result. [RTC]
+millisecond; reading status returns and clears that result. [RTC] The
+interrupt output is a true-high signal (data sheet p.1-97) and reaches E-VIA
+CA1 uninverted; the boot ROM and SOS set CA1 to a positive edge for it.
 
 Counters keep only the bits of the data sheet's Table I (46 in all); the others
 read as zero and ignore writes, and the RAM has no nibble behind the low half
@@ -415,8 +417,10 @@ SET.TIME keeps the two-digit year in the day and month compare latches with
 their other bits in the don't-care state, and GET.TIME reads it back as
 ((month << 2) | 3) & day. Host updates write those latches too. Left at
 power-on don't-care they read as year 00, and Apple Pascal then treats the
-clock as never set and overwrites it with the date saved on the boot disk. The explicit counter/RAM
-reset commands remain available. This models battery retention across machine
+clock as never set and overwrites it with the date saved on the boot disk. Each bit of
+the counter and RAM reset registers ($12, $13) resets one counter or RAM byte,
+D0 the milliseconds to D7 the month. The data sheet documents only FF; Apple's
+/// Plus dealer diagnostic resets them one bit at a time. This models battery retention across machine
 reset, not across FPGA reconfiguration or loss of MiSTer power.
 
 ## 6551 serial integration

@@ -236,20 +236,16 @@ module apple3_rtc #(
 				5'h08, 5'h09, 5'h0a, 5'h0b, 5'h0c, 5'h0d, 5'h0e, 5'h0f:
 				compare[addr[2:0]] <= data_in & ram_mask(addr[2:0]);
 				5'h11: irq_control <= data_in;
+				// Each data bit resets one counter or RAM byte, D0 the
+				// milliseconds to D7 the month. The data sheet only documents
+				// FF; Apple's /// Plus dealer diagnostic resets them one bit at
+				// a time and expects all eight cleared.
 				5'h12:
-				if (data_in == 8'hff) begin
-					counter[0] <= 8'h00;
-					counter[1] <= 8'h00;
-					counter[2] <= 8'h00;
-					counter[3] <= 8'h00;
-					counter[4] <= 8'h00;
-					counter[5] <= 8'h01;
-					counter[6] <= 8'h01;
-					counter[7] <= 8'h01;
-				end
+				for (reset_index = 0; reset_index < 8; reset_index = reset_index + 1)
+				if (data_in[reset_index]) counter[reset_index] <= (reset_index >= 5) ? 8'h01 : 8'h00;
 				5'h13:
-				if (data_in == 8'hff)
-					for (reset_index = 0; reset_index < 8; reset_index = reset_index + 1) compare[reset_index] <= 8'h00;
+				for (reset_index = 0; reset_index < 8; reset_index = reset_index + 1)
+				if (data_in[reset_index]) compare[reset_index] <= 8'h00;
 				default: ;
 			endcase
 		end
