@@ -10,6 +10,9 @@ the machine's signal and is kept exact; the second is only how it is looked at.
 | Color Composite | NTSC (J5 pin 12) | Decoded NTSC: the ///'s own colours, and Apple II artifact colour |
 | Mono Composite | B/W video (RCA jack, J5 pin 11) | Sixteen shades of grey at full resolution |
 
+Apple II hires is in colour only on Color Composite, as on the real machine;
+text and the monochrome modes are white on black on all three.
+
 All three are made from the same four colour lines, RGB8..RGB1 out of H3 on
 sheet 6 of the schematic. `apple3_video` produces those lines for every dot,
 and `apple3_composite` holds the two summing networks and the monitor on each

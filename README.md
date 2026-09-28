@@ -33,7 +33,8 @@ usable one: most software tried so far runs well.
 - Two joysticks, each with its button and latching switch
 - Speaker and 6-bit DAC sound
 - Clock set from the MiSTer's time
-- Serial port on the MiSTer's UART
+- Serial port on the MiSTer's UART, which can [call a BBS or host a
+  mailbox](docs/BBS.md)
 - Apple's boot ROM built in, or load another from the OSD
 
 For something to play, [apple-iii-games](https://github.com/jakesjews/apple-iii-games)
@@ -50,50 +51,28 @@ has native Apple /// games as ready-to-mount disk images.
    main=MiSTer_AppleIII
    ```
 
-4. Put disk images in `/media/fat/games/Apple-III/`, launch the core, and use
-   **Mount Drive 1** to select a boot disk. **Mount Drive 2–4** are the three
-   external Disk III drives. Each drive has its own **Write Protect** option.
-   **ProFile Disk 1** and **2** and **Block Disk 1** and **2** take
-   ProDOS-order images for the hard-disk cards, and each shows while a slot
-   holds its card (see **Slot 1** to **Slot 4** below).
-5. If SOS lists only two drives, use System Utilities → **System Configuration
-   Program**: read your `SOS.DRIVER`, set **Change System Parameters → Number of
-   Disk III Drives** to **4**, then **Generate New System** to save `SOS.DRIVER`
-   on your boot disk and reboot. Apple II emulation uses drives 1 and 2.
+4. Put disk images in `/media/fat/games/Apple-III/`, launch the core, and pick
+   a boot disk with **Mount Drive 1**. **Mount Drive 2–4** are the external
+   drives. The hard-disk cards' disks show in the OSD while a slot holds the
+   card.
+5. If SOS lists only two drives, raise its drive count to four with the System
+   Configuration Program ([how](docs/FOUR_DRIVES.md)).
 
-Use matching core and Main builds. The custom Main is selected only for this
-core. The supplied `MiSTer_AppleIII` binary comes from
-[jakesjews/Main_MiSTer](https://github.com/jakesjews/Main_MiSTer/tree/apple3-disk-storage)
+Use matching core and Main builds; the custom Main runs only for this core. It
+comes from
+[jakesjews/Main_MiSTer](https://github.com/jakesjews/Main_MiSTer/tree/apple3-disk-storage).
 
 ## Disk images
 
-Supported: **WOZ, DSK, DO, PO, NIB and 2MG**.
+- **Floppies:** WOZ, DSK, DO, PO, NIB and 2MG, writable. WOZ1, flux WOZ and
+  zipped images are read-only.
+- **Hard disks:** PO, HDV and ProDOS-order 2MG, written in place.
+- Copy-protected originals boot from plain sector dumps.
+- A2R flux captures: export them to WOZ with the free
+  [Applesauce client](https://applesaucefdc.com/software/), which needs no
+  Applesauce hardware.
 
-- **DSK, DO, PO, NIB and 2MG** are writable, A NIB track is saved only when all sixteen of its sectors read back
-  cleanly.
-- **WOZ2** is writable. Writes require existing track allocations; formatting
-  cannot create missing tracks.
-- WOZ1, flux-encoded WOZ and images inside a zip are **read-only**.
-- A raw 140K image's sector order is detected from its SOS/ProDOS directory
-  or DOS 3.3 VTOC, so a ProDOS-order file named `.dsk` works. Without either,
-  `.dsk`/`.do` mean DOS order and `.po` ProDOS order. For 2MG files, the header
-  determines the order.
-- A DOS 3.3 image gets the volume number in its VTOC, which disks made with
-  another volume than 254, such as Apple's dealer diagnostics, need to boot.
-- Sector dumps of copy-protected originals (an encrypted `SOS.INTERP`) get the
-  SOS protection key and synchronized tracks automatically. Deprotected disks,
-  which is most of what circulates, are left without the key so SOS does not
-  try to decrypt them.
-
-Hard-disk images for the block card and the ProFile are **PO, HDV or
-ProDOS-order 2MG**, any multiple of 512 bytes, written in place. Images beyond
-32 MiB show their first 65,535 blocks on the block card; Apple's ProFile
-driver addresses a 5 MB drive, 9,728 blocks. A read-only file, a
-write-protected 2MG, a DC42 container or a zip member mounts read-only.
-
-A2R flux captures are not supported; export them to WOZ with the free
-[Applesauce client](https://applesaucefdc.com/software/), which runs on macOS
-without the Applesauce hardware.
+[Details](docs/MAIN_STORAGE.md).
 
 ### Running BOS
 
@@ -119,71 +98,30 @@ apple3rtr's `bosboot.dsk` won't boot here; it is for a CFFA2 card.
 | Caps Lock | Alpha Lock |
 | Del | Keypad period, or DELETE with the /// Plus keymap |
 
-Keys repeat at 10 cps after half a second. Pressing Solid Apple *while a key is
-already held* raises that key to 30 cps, as on the real machine; holding Solid
-Apple first suppresses the repeat instead, which is what keeps Solid Apple key
-combinations to a single character. A held arrow key closes the second contact
-that its keyswitch has on real hardware, so it speeds up the same way and reads
-as Solid Apple while it is down.
+Keys repeat as on the real keyboard, Solid Apple speed-up included
+([details](docs/DESIGN.md#keyboard)). Controller 1 is joystick 0 and
+controller 2 the other port. Button 1 is the pushbutton, and button 2 flips
+the latching switch ([details](docs/DESIGN.md#joysticks-and-ad-converter)).
 
-The OSD keeps the drives, their write protection, the hard disks, **Model**
-and **Video** at the top. **System & ROM** holds Memory, Video Standard and
-Boot ROM, **Scaling & Filters** the scaler and scanline options, and
-**Hardware** the slots, mouse, joystick and serial ones.
+## Options
 
-**Model** in the OSD selects the Apple /// Plus. It adds that machine's one
-extra key, DELETE, on the host Delete key, and its **Text Interlace** switch:
-two fields half a line apart for 384 lines, showing pages 1 and 2 merged when
-a program selects page 2, as on the real machine. [Details](docs/INTERLACE.md).
+The OSD's first page has the drives, the hard disks, **Model** and **Video**.
+**System & ROM**, **Scaling & Filters** and **Hardware** hold the rest.
 
-**Memory** in the OSD selects Apple's 256 KiB board, the earlier 128 KiB one,
-or ON THREE's 512K board, which needs an SDRAM module and is offered only with
-one. Like a board swap, it takes effect at the next reset. SOS uses the extra
-memory on disks that boot with ON THREE's boot block, as ON THREE's own disks
-do; Apple's boot block stops at 256K. Boot `releases/SOS512K.po`, the SOS 512K
-update disk, to give a disk the 512K check
-([details](docs/EXTERNAL_MEMORY.md#giving-a-disk-512k)).
+| Option | |
+|---|---|
+| **Model** | Apple /// or /// Plus, with DELETE and **Text Interlace** ([details](docs/INTERLACE.md)) |
+| **Video**, **Display** | RGB, color or mono composite, and the monitor on a composite output ([details](docs/VIDEO_SOURCES.md)) |
+| **Memory** | 256K, 128K, or ON THREE's 512K with an SDRAM module; `releases/SOS512K.po` updates a disk for 512K ([details](docs/EXTERNAL_MEMORY.md)) |
+| **Video Standard** | NTSC or PAL, Apple's 50 Hz Euro system ([details](docs/PAL.md)) |
+| **Boot ROM** | Apple's, or soshdboot to boot **Block Disk 1** ([details](docs/BLOCK_STORAGE.md)) |
+| **Slot 1–4** | The card in each slot; the block card in 1 and a ProFile in 4 as shipped ([details](docs/SLOTS.md)) |
+| **Mouse Speed** | How far the MiSTer's mouse moves the mouse card's ([details](docs/MOUSE.md)) |
+| **Joystick 1 on** | Moves controller 1 from port B to port A |
+| **Serial CTS**, **DSR**, **DCD** | Leave at the defaults unless the host does flow control ([details](docs/DEVELOPMENT.md#serial-port)) |
+| **Aspect ratio**, **Scale** | MiSTer's usual ratios and integer scaling |
 
-**Boot ROM** in the OSD selects Rob Justice's soshdboot ROM, which boots the
-block card's **Block Disk 1** if an image is mounted there and the floppy if
-not. The image needs soshdboot's loader and kernel, as on
-[his images](https://github.com/robjustice/soshdboot/tree/master/disks); with
-any other, choose **Apple**, or turn on Alpha Lock and press Ctrl + F2 to boot
-the floppy. It takes effect at the next reset. [Details](docs/BLOCK_STORAGE.md).
-
-**Video** in the OSD selects the machine's RGB, NTSC color or black-and-white
-output. Apple II hires is in color only on **Color Composite**, as on the real
-machine. Text and monochrome graphics are white on black on all three. With
-either composite output, **Display** chooses the monitor on it: **RGB Monitor**
-for the clean picture, **Monitor /// Green** or **Amber**, or a **Color TV**
-with its soft text and bleeding color. [Details](docs/VIDEO_SOURCES.md).
-
-**Video Standard** in the OSD selects NTSC or PAL: Apple's 50 Hz "Euro
-system", the same picture in a 310-line frame. [Details](docs/PAL.md).
-
-**Slot 1** to **Slot 4** in the OSD choose each slot's card, taking effect at
-the next reset. The **Block Card** serves **Block Disk 1** and **2** to the
-Problock3 driver and the soshdboot ROM ([details](docs/BLOCK_STORAGE.md)).
-**ProFile 1** and **2** are Apple's ProFile card with **ProFile Disk 1** or
-**2**, for Apple's own `.PROFILE` driver, which Apple's disks set to slot 4
-([details](docs/PROFILE.md)). The **Mouse Card** is Apple's
-([details](docs/MOUSE.md)). As shipped, slot 1 has the block card and slot 4
-the first ProFile card. **Mouse Speed**, shown while a slot holds the mouse
-card, sets how far the MiSTer's mouse moves the card's; Normal is close to
-Apple's mouse.
-
-**Aspect ratio** and **Scale** are MiSTer's usual ones: Original (4:3), Full
-Screen or the custom ratios of `MiSTer.ini`, and integer scaling.
-
-Controller 1 is the joystick in port B, which SOS and Business BASIC read as
-joystick 0; **Joystick 1 on** in the OSD moves it to port A. Controller 2 uses
-the other port. Button 1 is the joystick's pushbutton, and each press of button
-2 flips its latching switch.
-
-Serial uses MiSTer's UART. Leave **Serial CTS** and **Serial DSR** at **Always
-ready** unless using host hardware flow control, and **Serial DCD** at **Always
-on** unless a program should see carrier from the host (**Host DTR**) or none
-(**Off**). With MiSTer's modem it can [call a BBS or host a mailbox](docs/BBS.md). [Serial details](docs/DEVELOPMENT.md#serial-port).
+Memory, Boot ROM and the slots take effect at the next reset.
 
 ## Building and simulation
 

@@ -5,6 +5,11 @@ module; without one the option lists only 256K and 128K, and a saved 512K
 setting runs as 256K. [The memory map](MEMORY_MAP.md#the-on-three-512k-board)
 has what the board does, from its PROMs.
 
+Like a board swap, a new choice takes effect at the next reset. SOS uses the
+extra memory on a disk that boots with ON THREE's boot block, as ON THREE's
+own disks do. Apple's boot block stops at 256K, and
+[the update disk](#giving-a-disk-512k) gives it the 512K check.
+
 ## Where the banks are
 
 | Banks | 128K / 256K | 512K |
