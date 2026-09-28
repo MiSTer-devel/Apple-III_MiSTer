@@ -9,8 +9,8 @@
   special blocks, resets and image states, against a modelled host.
 - `core_profile_tb.sv` (Verilator): `diagnostic.s` on the real T65, MMU and
   slot bus with the card in slot 4. The ROM image reproduces Apple's
-  pseudo-DMA ladder at $F7FE–$F900; the runner checks it against
-  `research/roms/apple3.rom` when that file is present. The program follows
+  pseudo-DMA ladder at $F7FE–$F900; the runner checks it byte for byte
+  against the boot ROM in `rtl/apple3_rom.hex`. The program follows
   the driver's sequences, including the last-page trick that depends on the
   6502's taken-branch dummy fetches, and checks every byte's destination.
 

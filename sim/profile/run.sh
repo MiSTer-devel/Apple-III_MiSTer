@@ -15,12 +15,11 @@ vvp "$out/profile_card_tb"
 ca65 sim/profile/diagnostic.s -o "$out/diagnostic.o" -l "$out/diagnostic.lst"
 ld65 -C sim/serial/rom.cfg "$out/diagnostic.o" -o "$out/diagnostic.rom"
 xxd -p -c 1 "$out/diagnostic.rom" > "$out/diagnostic.hex"
-# The ladder must be Apple's, byte for byte, where the ROM image is at hand.
-if [[ -f research/roms/apple3.rom ]]; then
-  cmp -s <(dd if="$out/diagnostic.rom" bs=1 skip=2046 count=259 2>/dev/null) \
-         <(dd if=research/roms/apple3.rom bs=1 skip=2046 count=259 2>/dev/null) ||
-    { echo "the diagnostic's pseudo-DMA ladder differs from Apple's ROM" >&2; exit 1; }
-fi
+# The ladder must be Apple's, byte for byte.
+xxd -r -p rtl/apple3_rom.hex > "$out/apple3.rom"
+cmp -s <(dd if="$out/diagnostic.rom" bs=1 skip=2046 count=259 2>/dev/null) \
+       <(dd if="$out/apple3.rom" bs=1 skip=2046 count=259 2>/dev/null) ||
+  { echo "the diagnostic's pseudo-DMA ladder differs from Apple's ROM" >&2; exit 1; }
 if [[ ! -f sim/gen/t65.v || ! -f sim/gen/via6522.v ]]; then ./sim/gen_vhdl.sh; fi
 if ! verilator --binary --timing -j 4 --top-module core_profile_tb \
   -Wno-fatal -Wno-WIDTH -Wno-UNUSED -Wno-DECLFILENAME -Wno-TIMESCALEMOD \
