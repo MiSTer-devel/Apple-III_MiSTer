@@ -1,2 +1,0 @@
-# Unified patches contain significant context-prefix whitespace.
-support/main/*.patch -whitespace

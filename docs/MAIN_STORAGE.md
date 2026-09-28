@@ -1,8 +1,8 @@
 # Companion Main storage integration
 
-This core requires the companion Main changes in
-[`support/main/apple3-storage.patch`](../support/main/apple3-storage.patch).
-The patch applies to MiSTer-devel/Main_MiSTer commit
+This core requires the companion Main on the `apple3-disk-storage` branch of
+[jakesjews/Main_MiSTer](https://github.com/jakesjews/Main_MiSTer/tree/apple3-disk-storage):
+one commit on MiSTer-devel/Main_MiSTer commit
 `5fb9bd102024ac16a92291f291318d5846dcaae2`.
 
 The Apple III code lives in `support/a3/`: `a3_disk.cpp` mounts and
@@ -112,13 +112,10 @@ and write policies.
 
 ## Build and install
 
-From the Apple III repository root, clone the matching Main source and apply
-its patch:
+From the Apple III repository root, clone the companion Main next to it:
 
 ```sh
-git clone https://github.com/MiSTer-devel/Main_MiSTer.git ../Main_MiSTer-AppleIII
-git -C ../Main_MiSTer-AppleIII checkout 5fb9bd102024ac16a92291f291318d5846dcaae2
-git -C ../Main_MiSTer-AppleIII apply ../Apple-III-MiSTer/support/main/apple3-storage.patch
+git clone -b apple3-disk-storage https://github.com/jakesjews/Main_MiSTer.git ../Main_MiSTer-AppleIII
 ```
 
 In that checkout, use Main's normal ARM Linux cross toolchain and run

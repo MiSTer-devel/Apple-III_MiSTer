@@ -18,8 +18,8 @@ existing bits. No MiSTer framework files were changed.
 
 Main's future block assignments move from S2/S3 to S4/S5. This requires the
 matching Main binary for four-drive cores; older two-drive WOZ cores still use
-S0/S1. The Main changes are on the companion checkout's `apple3-disk-storage`
-branch and in [`apple3-storage.patch`](../support/main/apple3-storage.patch);
+S0/S1. The Main changes are on the `apple3-disk-storage` branch of
+[jakesjews/Main_MiSTer](https://github.com/jakesjews/Main_MiSTer/tree/apple3-disk-storage);
 the tests are in `support/main/tests`.
 
 SOS boot disks may configure only two drives. In System Utilities, read the
