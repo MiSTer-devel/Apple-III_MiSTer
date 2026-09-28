@@ -3,14 +3,14 @@
 This core requires the companion Main changes in
 [`support/main/apple3-storage.patch`](../support/main/apple3-storage.patch).
 The patch applies to MiSTer-devel/Main_MiSTer commit
-`aa271e41ebbf616903f9e0216b0900aead5bfce1`.
+`5fb9bd102024ac16a92291f291318d5846dcaae2`.
 
-The Apple III code lives in `support/apple3/`: `apple3_disk.cpp` mounts and
-serves the images, `apple3_woz.cpp` builds the synchronized tracks and the SOS
+The Apple III code lives in `support/a3/`: `a3_disk.cpp` mounts and
+serves the images, `a3_woz.cpp` builds the synchronized tracks and the SOS
 protection key. `user_io.cpp` reaches it through three hook lines, the way the
 Mac support code is wired. It calls the 2MG, DC42 and sector-order helpers
 that the //e and IIgs use in `support/a2/iigs_fmt.cpp`, and changes nothing
-outside `support/apple3/` beyond those hook lines and one include. The
+outside `support/a3/` beyond those hook lines and one include. The
 hardware retains its own P6 controller and Disk III drive logic.
 
 | Main mount | Apple III assignment | Policy |
@@ -113,7 +113,7 @@ its patch:
 
 ```sh
 git clone https://github.com/MiSTer-devel/Main_MiSTer.git ../Main_MiSTer-AppleIII
-git -C ../Main_MiSTer-AppleIII checkout aa271e41ebbf616903f9e0216b0900aead5bfce1
+git -C ../Main_MiSTer-AppleIII checkout 5fb9bd102024ac16a92291f291318d5846dcaae2
 git -C ../Main_MiSTer-AppleIII apply ../Apple-III-MiSTer/support/main/apple3-storage.patch
 ```
 
@@ -136,7 +136,7 @@ uses eight-second mount delays and a three-second reset delay (units are seconds
 
 From this repository, run `support/main/tests/run.sh`; set `MAIN_DIR` if the
 Main checkout is not `../Main_MiSTer-AppleIII`. It builds Main's
-`support/apple3` and `support/a2` sources with file/SPI shims under address
+`support/a3` and `support/a2` sources with file/SPI shims under address
 and undefined-behavior sanitizers.
 Tests cover four simultaneous mounts, independent write protection, writes and
 replacement/ejection, format/slot matching, DOS/PO/2MG equivalence, bit-packed GCR, NIB

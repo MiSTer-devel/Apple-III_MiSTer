@@ -1,6 +1,6 @@
 # Companion Main storage tests
 
-`run.sh` compiles Main's `support/apple3` and `support/a2` sources against
+`run.sh` compiles Main's `support/a3` and `support/a2` sources against
 file and SPI shims, with address and undefined-behaviour sanitizers, and runs
 the Apple III storage checks: format conversion and equivalence, the DOS 3.3
 volume number, NIB and sector write-back, SOS protection-key rules, native WOZ

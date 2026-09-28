@@ -2,8 +2,8 @@
 #include "user_io.h"
 #include "support/a2/iigs_fmt.h"
 #include "support/a2/iigs_disk.h"
-#include "support/apple3/apple3_woz.h"
-#include "support/apple3/apple3_disk.h"
+#include "support/a3/a3_woz.h"
+#include "support/a3/a3_disk.h"
 #include <cassert>
 #include <cstring>
 #include <string>
@@ -79,12 +79,12 @@ static void source(fileTYPE &f, const std::vector<uint8_t> &b) {
   f.size=b.size(); f.zip=nullptr; rewind(f.filp);
 }
 static int ack(int slot) { return 0x100*(slot+1); }
-static bool mount(int slot, const char *name, fileTYPE &f, int &writable) { return apple3_mount_hook(slot,name,&f,&writable)==1; }
-static void write(int slot, fileTYPE &f, uint64_t lba, int sz=512) { assert(apple3_sd_service(slot,&f,2,lba,sz,ack(slot))==1); }
+static bool mount(int slot, const char *name, fileTYPE &f, int &writable) { return a3_mount_hook(slot,name,&f,&writable)==1; }
+static void write(int slot, fileTYPE &f, uint64_t lba, int sz=512) { assert(a3_sd_service(slot,&f,2,lba,sz,ack(slot))==1); }
 static std::vector<uint8_t> serve(int slot, fileTYPE &f) {
   std::vector<uint8_t> result;
   for(uint64_t lba=0;lba*512<uint64_t(f.size);lba+=32) {
-    assert(apple3_sd_service(slot,&f,1,lba,16384,ack(slot))==1);
+    assert(a3_sd_service(slot,&f,1,lba,16384,ack(slot))==1);
     assert(to_fpga.size()==16384); assert(command==unsigned(UIO_SECTOR_RD|ack(slot)));
     result.insert(result.end(),to_fpga.begin(),to_fpga.end());
   }
@@ -96,7 +96,7 @@ static std::vector<uint8_t> mount_serve(fileTYPE &f, const std::vector<uint8_t> 
 }
 // Every track of an Apple III WOZ decodes completely into a DOS-order image.
 static bool decode_all(const std::vector<uint8_t> &woz, std::vector<uint8_t> &dsk) {
-  for(int t=0;t<35;t++) if(apple3_verify_track(woz.data(),woz.size(),t,dsk.data()+t*4096,nullptr)!=0xffff) return false;
+  for(int t=0;t<35;t++) if(a3_verify_track(woz.data(),woz.size(),t,dsk.data()+t*4096,nullptr)!=0xffff) return false;
   return true;
 }
 // The nibbles of track t over two revolutions, each with the bit index of its last bit.
@@ -144,7 +144,7 @@ int main(int argc,char **argv) {
     std::vector<uint8_t> b((std::istreambuf_iterator<char>(input)),{});
     source(f,b); int writable; assert(mount(0,argv[2],f,writable));
     auto w=serve(0,f); std::ofstream out(argv[3],std::ios::binary); out.write((char*)w.data(),w.size());
-    apple3_unmount(0); return !out;
+    a3_unmount(0); return !out;
   }
   std::vector<uint8_t> dsk(A2_525_IMAGE_SIZE), po(dsk.size()), back(dsk.size());
   uint32_t rng=1; for(auto &b:dsk) { rng=rng*1664525+1013904223; b=rng>>24; }
@@ -194,11 +194,11 @@ int main(int argc,char **argv) {
     auto all=[&](const std::vector<uint8_t> &woz,uint8_t want) {
       uint8_t got[16], sectors[4096];
       for(int t:{0,9,17,34}) {
-        assert(apple3_verify_track(woz.data(),woz.size(),t,sectors,got)==0xffff);
+        assert(a3_verify_track(woz.data(),woz.size(),t,sectors,got)==0xffff);
         for(int s=0;s<16;s++) assert(got[s]==want);
       }
     };
-    assert(apple3_dos33_volume(dos.data())==1 && !apple3_dos33_volume(dsk.data()));
+    assert(a3_dos33_volume(dos.data())==1 && !a3_dos33_volume(dsk.data()));
     all(w,254); all(mount_serve(f,dos,"dos.dsk",0,true),1);
     a2_dos_to_prodos(po.data(),dos.data()); all(mount_serve(f,po,"dos.po",0,true),1);
     std::vector<uint8_t> vmg(64+dos.size()); twomg_build(vmg.data(),vmg.size(),po.data(),po.size(),1);
@@ -216,15 +216,15 @@ int main(int argc,char **argv) {
     std::vector<uint8_t> keyed(A2_NIB_IMAGE_SIZE); a2_dsk_to_nib(keyed.data(),dsk.data());
     // With volume 254 throughout, the Apple /// track is the shared nibblizer's byte for byte.
     for(int t=0;t<35;t++) {
-      uint8_t track[A2_NIB_TRACK_SIZE]; apple3_nib_track(track,dsk.data()+t*4096,t,volumes);
+      uint8_t track[A2_NIB_TRACK_SIZE]; a3_nib_track(track,dsk.data()+t*4096,t,volumes);
       assert(!memcmp(track,keyed.data()+t*A2_NIB_TRACK_SIZE,A2_NIB_TRACK_SIZE));
     }
     volumes[2]=0xb4; volumes[14]=0xc1;
-    apple3_nib_track(keyed.data()+9*A2_NIB_TRACK_SIZE,dsk.data()+9*4096,9,volumes);
+    a3_nib_track(keyed.data()+9*A2_NIB_TRACK_SIZE,dsk.data()+9*4096,9,volumes);
     auto next_dsk=dsk; for(int i=0;i<4096;i++) next_dsk[9*4096+i]^=0x5a;
-    auto next_nib=keyed; apple3_nib_track(next_nib.data()+9*A2_NIB_TRACK_SIZE,next_dsk.data()+9*4096,9,volumes);
+    auto next_nib=keyed; a3_nib_track(next_nib.data()+9*A2_NIB_TRACK_SIZE,next_dsk.data()+9*4096,9,volumes);
     assert(next_nib!=keyed);
-    std::vector<uint8_t> next_woz(512*1024); next_woz.resize(apple3_nib_to_woz(next_woz.data(),next_woz.size(),next_nib.data()));
+    std::vector<uint8_t> next_woz(512*1024); next_woz.resize(a3_nib_to_woz(next_woz.data(),next_woz.size(),next_nib.data()));
     auto save_nib_track=[&](const std::vector<uint8_t> &woz,int t,const std::vector<uint8_t> &until_last,size_t off) {
       for(int b=0;b<17;b++) {
         from_fpga.assign(woz.begin()+(3+t*17+b)*512,woz.begin()+(4+t*17+b)*512); write(0,f,3+t*17+b);
@@ -239,7 +239,7 @@ int main(int argc,char **argv) {
     auto saved=bytes(f); auto again=mount_serve(f,saved,"keyed.nib",0,true); assert(again==next_woz);
     assert(decode_all(again,back) && back==next_dsk);
     uint8_t got_volumes[16], track9[4096];
-    assert(apple3_verify_track(again.data(),again.size(),9,track9,got_volumes)==0xffff && !memcmp(got_volumes,volumes,16));
+    assert(a3_verify_track(again.data(),again.size(),9,track9,got_volumes)==0xffff && !memcmp(got_volumes,volumes,16));
     // One bad data checksum keeps the whole track out of the source.
     auto damaged=served; size_t data=(3+9*17+6)*512+100; damaged[data]^=0x01;
     message.clear(); save_nib_track(damaged,9,next_nib,0); assert(bytes(f)==next_nib); assert(message.find("not saved")!=std::string::npos);
@@ -257,7 +257,7 @@ int main(int argc,char **argv) {
   auto next=dsk; for(int t:tracks) for(int i=0;i<4096;i++) next[t*4096+i]^=0x5a+i%7;
   std::vector<uint8_t> next_po(next.size()), next_woz(512*1024);
   a2_dos_to_prodos(next_po.data(),next.data());
-  next_woz.resize(apple3_dsk_to_woz(next_woz.data(),next_woz.size(),next.data(),0,254));
+  next_woz.resize(a3_dsk_to_woz(next_woz.data(),next_woz.size(),next.data(),0,254));
   mount_serve(f,dsk,"disk.dsk",0,true); message.clear();
   for(int t:tracks) save_track(0,f,next_woz,t,t,[&]{ fresh(bytes(f),dsk,next,t); });
   assert(bytes(f)==next); assert(message.empty());
@@ -302,23 +302,23 @@ int main(int argc,char **argv) {
   for(unsigned i=14;i<interp.size();i++) interp[i]=code_like[(i*7+i/64)%sizeof(code_like)];
   const auto plain_interp=interp;
   memcpy(&sos_po[11*512],interp.data(),interp.size()); a2_prodos_to_dos(sos.data(),sos_po.data());
-  assert(!apple3_sos_interp_encrypted(sos.data())); assert(!apple3_sos_interp_encrypted(dsk.data()));
+  assert(!a3_sos_interp_encrypted(sos.data())); assert(!a3_sos_interp_encrypted(dsk.data()));
   std::vector<uint8_t> plain_woz(512*1024), keyed_woz(512*1024);
-  plain_woz.resize(apple3_dsk_to_woz(plain_woz.data(),plain_woz.size(),sos.data(),0,254));
+  plain_woz.resize(a3_dsk_to_woz(plain_woz.data(),plain_woz.size(),sos.data(),0,254));
   assert(mount_serve(f,sos,"boot.dsk",0,true)==plain_woz);
-  apple3_sos_crypt(&interp[14],interp.size()-14,0x830e);
+  a3_sos_crypt(&interp[14],interp.size()-14,0x830e);
   memcpy(&sos_po[11*512],interp.data(),interp.size()); a2_prodos_to_dos(sos.data(),sos_po.data());
-  assert(apple3_sos_interp_encrypted(sos.data()));
-  keyed_woz.resize(apple3_dsk_to_woz(keyed_woz.data(),keyed_woz.size(),sos.data(),1,254));
+  assert(a3_sos_interp_encrypted(sos.data()));
+  keyed_woz.resize(a3_dsk_to_woz(keyed_woz.data(),keyed_woz.size(),sos.data(),1,254));
   assert(mount_serve(f,sos,"boot.dsk",0,true)==keyed_woz);
-  plain_woz.resize(512*1024); plain_woz.resize(apple3_dsk_to_woz(plain_woz.data(),plain_woz.size(),sos.data(),0,254));
+  plain_woz.resize(512*1024); plain_woz.resize(a3_dsk_to_woz(plain_woz.data(),plain_woz.size(),sos.data(),0,254));
   assert(keyed_woz!=plain_woz && decode_all(keyed_woz,back) && back==sos);
   // The key sectors carry the key bytes; every other address field keeps volume 254.
   { uint8_t vols[16], trk[4096]; const uint8_t key[8]={0xb4,0xc1,0xe4,0xf3,0x9b,0xbd,0xbd,0x7c}, sec[8]={2,14,10,6,2,14,10,6};
-    for(int t=0;t<35;t++) { assert(apple3_verify_track(keyed_woz.data(),keyed_woz.size(),t,trk,vols)==0xffff);
+    for(int t=0;t<35;t++) { assert(a3_verify_track(keyed_woz.data(),keyed_woz.size(),t,trk,vols)==0xffff);
       for(int s=0;s<16;s++) assert(vols[s]==(t>=9&&t<=16&&s==sec[t-9]?key[t-9]:254)); } }
   assert(interp!=plain_interp && !memcmp(&interp[14],&plain_interp[14],3));
-  apple3_sos_crypt(&interp[14],interp.size()-14,0x830e); assert(interp==plain_interp);
+  a3_sos_crypt(&interp[14],interp.size()-14,0x830e); assert(interp==plain_interp);
   puts("PASS SOS protection: key only for an encrypted SOS.INTERP, cipher round-trip, plain volumes untouched");
   // Native WOZ: unknown chunks, raw bits and all metadata remain byte-for-byte.
   w.insert(w.end(),{'M','E','T','A',3,0,0,0,'x','y','z'}); put32(w.data()+8,woz_crc32(w.data()+12,w.size()-12));
@@ -353,12 +353,12 @@ int main(int argc,char **argv) {
   auto new_d4=originals[3];
   std::copy(originals[3].begin()+4096,originals[3].begin()+8192,new_d4.begin());
   std::vector<uint8_t> encoded(512*1024);
-  encoded.resize(apple3_dsk_to_woz(encoded.data(),encoded.size(),new_d4.data(),0,254));
+  encoded.resize(a3_dsk_to_woz(encoded.data(),encoded.size(),new_d4.data(),0,254));
   save_track(3,drives[3],encoded,0,0,[]{});
   assert(bytes(drives[3])==new_d4);
   save_track(2,drives[2],encoded,0,0,[]{});
   assert(bytes(drives[2])==originals[2]);
-  apple3_unmount(1);
+  a3_unmount(1);
   auto replacement=mount_serve(drives[1],w,"replacement.woz",1,true);
   assert(replacement==w);
   assert(serve(2,drives[2])==mounted[2]);
@@ -400,8 +400,8 @@ int main(int argc,char **argv) {
   source(f,dsk); assert(!mount(4,"disk.dsk",f,writable));
   source(f,bm); bm[12]=3; source(f,bm); assert(!mount(4,"bad.2mg",f,writable));
   // Slots 8 and up, and every slot under another core, are left to the generic path.
-  source(f,block); assert(mount(8,"other.hdv",f,writable)); assert(apple3_sd_service(8,&f,1,0,512,0)==0);
-  core="Apple-II"; source(f,dsk); assert(mount(0,"disk.dsk",f,writable)); assert(apple3_sd_service(0,&f,1,0,512,0)==0);
+  source(f,block); assert(mount(8,"other.hdv",f,writable)); assert(a3_sd_service(8,&f,1,0,512,0)==0);
+  core="Apple-II"; source(f,dsk); assert(mount(0,"disk.dsk",f,writable)); assert(a3_sd_service(0,&f,1,0,512,0)==0);
   // The //e and IIgs paths in support/a2 are unchanged upstream code.
   assert(iigs_mount(2,"disk.dsk",&f,&writable)==IIGS_HANDLED && writable);
   auto iigs_serve=[&](int slot) { std::vector<uint8_t> r; for(uint64_t lba=0;lba*512<uint64_t(f.size);lba++) { iigs_read(slot,&f,lba,0); r.insert(r.end(),to_fpga.begin(),to_fpga.end()); } r.resize(f.size); return r; };
@@ -432,5 +432,5 @@ int main(int argc,char **argv) {
   auto overflow=bm; put32(overflow.data()+12,1); put32(overflow.data()+20,0xffffffff); put32(overflow.data()+28,0);
   source(f,overflow); assert(!mount(4,"bad.2mg",f,writable));
   puts("PASS slot assignments, block images, invalid containers, other cores untouched");
-  for(int i=0;i<16;i++) apple3_unmount(i);
+  for(int i=0;i<16;i++) a3_unmount(i);
 }
