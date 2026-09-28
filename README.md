@@ -95,6 +95,19 @@ A2R flux captures are not supported; export them to WOZ with the free
 [Applesauce client](https://applesaucefdc.com/software/), which runs on macOS
 without the Applesauce hardware.
 
+### Running BOS
+
+Put the Washington Apple Pi disks `bos-01a` in **Drive 1** and `bos-01b` in
+**Drive 2**, and a `/BOS` hard disk on **ProFile Disk 1**. To make one from
+[apple3rtr](https://github.com/datajerk/apple3rtr)'s `apple3.hd`, run MAME's
+`chdman` (`.\chdman` in PowerShell on Windows):
+
+```sh
+chdman extracthd -i apple3.hd -o bos.hdv
+```
+
+apple3rtr's `bosboot.dsk` won't boot here; it is for a CFFA2 card.
+
 ## Controls
 
 | Key | Action |

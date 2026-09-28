@@ -13,10 +13,10 @@ index 79d4787..d871e4d 100644
  #include "support/mac/mac.h"
 diff --git a/support/a3/a3_disk.cpp b/support/a3/a3_disk.cpp
 new file mode 100644
-index 0000000..3782030
+index 0000000..9c9df24
 --- /dev/null
 +++ b/support/a3/a3_disk.cpp
-@@ -0,0 +1,404 @@
+@@ -0,0 +1,420 @@
 +#include <stdio.h>
 +#include <stdlib.h>
 +#include <string.h>
@@ -114,6 +114,11 @@ index 0000000..3782030
 +	return eqi(ext, "po");
 +}
 +
++static int volume_at(fileTYPE *f, int64_t off, uint8_t *block)
++{
++	return off + 512 <= f->size && FileSeek(f, off, SEEK_SET) && FileReadAdv(f, block, 512) == 512 && sos_directory(block);
++}
++
 +static const char *mount_block(int index, fileTYPE *f, const uint8_t *head, const char *ext,
 +	const TwoMG *m, int dc42, int locked, int *writable)
 +{
@@ -132,6 +137,17 @@ index 0000000..3782030
 +		dc42_parse(head, f->size, &d);
 +		off = 84;
 +		payload = d.data_size;
++	}
++	else
++	{
++		uint8_t block[512];
++		if (!volume_at(f, 2 * 512, block) && volume_at(f, 3 * 512, block))
++		{
++			off = 512;
++			payload = (int64_t)(block[0x29] | block[0x2a] << 8) * 512;
++			if (payload > f->size - off) payload = f->size - off;
++		}
++		FileSeek(f, 0, SEEK_SET);
 +	}
 +	if (payload <= 0 || (payload & 511)) return "Block image length must be a multiple of 512.";
 +	g[index].mode = MODE_BLOCK;

@@ -105,6 +105,10 @@ and write policies.
   The block card's 512-byte writes go in place behind any 2MG header; a
   write to a read-only image is acknowledged and dropped. Main never silently
   moves an image to another mount slot.
+- A raw image with no volume directory at block 2 but one at block 3 is a
+  CFFA2 disk extracted from a MAME CHD, such as apple3rtr's `apple3.hd`: block
+  0 holds IDE identify data. Main serves its first partition, from block 1 for
+  the length in its volume header, and writes it in place.
 
 ## Build and install
 

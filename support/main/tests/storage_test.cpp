@@ -395,6 +395,18 @@ int main(int argc,char **argv) {
   from_fpga.assign(512,0x3c); before=bytes(f); write(6,f,2);
   { auto want=before; std::fill(want.begin()+128+1024,want.begin()+128+1536,0x3c); assert(bytes(f)==want); }
   assert(mount_serve(f,block,"profile.po",7,true)==block);
+  // A disk extracted from a MAME CHD of a CFFA2 card (apple3rtr's apple3.hd)
+  // has IDE identify data in block 0 and its first partition from block 1.
+  std::vector<uint8_t> cffa(512*(1+8+8)); for(unsigned i=0;i<cffa.size();i++) cffa[i]=i*7;
+  auto volume=[&](unsigned first, const char *name, unsigned blocks) {
+    uint8_t *h=cffa.data()+(first+2)*512; memset(h,0,512); h[4]=0xf0|strlen(name); memcpy(h+5,name,strlen(name));
+    h[0x23]=39; h[0x24]=13; h[0x29]=blocks&255; h[0x2a]=blocks>>8; };
+  volume(1,"BOS",8); volume(9,"HOME",8);
+  assert(mount_serve(f,cffa,"bos.hdv",6,true)==std::vector<uint8_t>(cffa.begin()+512,cffa.begin()+512*9)); assert(f.size==8*512);
+  from_fpga.assign(512,0x77); before=bytes(f); write(6,f,7);
+  { auto want=before; std::fill(want.begin()+512*8,want.begin()+512*9,0x77); assert(bytes(f)==want); }
+  write(6,f,8); assert(bytes(f)[512*9]==before[512*9]);
+  volume(1,"BOS",100); assert(mount_serve(f,cffa,"bos.hdv",4,true).size()==16*512);
   source(f,w); assert(!mount(4,"floppy.woz",f,writable));
   source(f,block); assert(!mount(0,"hard.hdv",f,writable));
   source(f,dsk); assert(!mount(4,"disk.dsk",f,writable));
