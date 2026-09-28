@@ -13,13 +13,14 @@
 // in Apple II emulation mode.
 //
 // Both ROMs are built in, as they are in the Apple II MiSTer core: the EPROM
-// (341-0270-C) and the microcontroller's program (341-0269). The wiring
+// (341-0270-C) and the microcontroller's program (341-0269), which
+// roms/Makefile makes from the ROMs placed there. The wiring
 // follows that core's card by Gyorgy Szombathelyi and MAME's
 // a2bus/mouse.cpp.
 `timescale 1ns / 1ps
 module apple3_mouse_card #(
-	parameter EPROM_FILE = "rtl/cards/apple3_mouse_eprom.hex",
-	parameter MCU_FILE   = "rtl/cards/apple3_mouse_mcu.hex"
+	parameter EPROM_FILE = "roms/apple3_mouse_eprom.hex",
+	parameter MCU_FILE   = "roms/apple3_mouse_mcu.hex"
 ) (
 	input logic clk,
 	input logic reset,

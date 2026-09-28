@@ -1,9 +1,10 @@
 PYTHON ?= python3
 VERILATOR ?= verilator
 
-.PHONY: help format format-check lint lint-prepare check-tools test test-quick boot
+.PHONY: help roms format format-check lint lint-prepare check-tools test test-quick boot
 
 help:
+	@echo "make roms          Build the ROM images from Apple's ROMs placed in roms/ (see roms/Makefile)"
 	@echo "make format        Format project RTL and testbenches in place"
 	@echo "make format-check  Check formatting without changing files"
 	@echo "make lint          Prepare dependencies and lint the emu top with Verilator"
@@ -15,6 +16,9 @@ help:
 	@echo "                   Boot the whole machine, from the stock ROM unless ROM= names another"
 	@echo "                   or ARGS has --soshdboot, the OSD's Boot ROM option"
 	@echo "Append FILES='rtl/apple3_acia.sv sim/acia_tb.sv' to select formatter files"
+
+roms:
+	$(MAKE) -C roms
 
 format format-check:
 	$(PYTHON) tools/verible.py $@ $(FILES)
@@ -30,7 +34,7 @@ lint-prepare:
 check-tools:
 	@./sim/check_tools.sh
 
-test-quick: check-tools
+test-quick: check-tools roms
 	./sim/run_tests.sh
 
 test: test-quick
@@ -43,5 +47,5 @@ test: test-quick
 # 30 M clocks reach the disk bootstrap; SOS needs far more with a disk mounted.
 # The harness treats any argument after the clock count as a disk test.
 CLOCKS ?= $(if $(DISK),2000000000,30000000)
-boot: check-tools
+boot: check-tools roms
 	APPLE3_ROM="$(ROM)" ./sim/run_core_boot.sh $(CLOCKS) $(if $(DISK),"$(DISK)" $(ARGS))

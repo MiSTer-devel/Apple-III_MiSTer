@@ -212,7 +212,7 @@ module mouse_card_tb;
 		logic [7:0] q;
 		time first, second;
 
-		$readmemh("rtl/cards/apple3_mouse_eprom.hex", eprom);
+		$readmemh("roms/apple3_mouse_eprom.hex", eprom);
 		// Let the bus process reach its first wait before asking it for a cycle.
 		repeat (4) @(posedge clk);
 		rom_read(8'h00, q);

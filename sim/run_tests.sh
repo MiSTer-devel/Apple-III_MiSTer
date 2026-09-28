@@ -3,12 +3,6 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 mkdir -p sim/obj_dir
-# Quartus loads the boot ROM from a MIF, which must match the simulation's hex.
-python3 tools/hex2mif.py rtl/apple3_rom.hex sim/obj_dir/apple3_rom.mif
-if ! cmp -s sim/obj_dir/apple3_rom.mif rtl/apple3_rom.mif; then
-	echo "rtl/apple3_rom.mif is stale; run python3 tools/hex2mif.py rtl/apple3_rom.hex rtl/apple3_rom.mif" >&2
-	exit 1
-fi
 # The built-in soshdboot ROM must match its source.
 rtl/soshdboot/build_rom.sh sim/obj_dir
 for image in apple3hdboot.hex apple3hdboot.mif; do

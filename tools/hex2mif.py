@@ -1,7 +1,7 @@
 """Write the Quartus memory file for a byte-per-line hex image.
 
 Simulation loads the hex with $readmemh; Quartus's altsyncram wants a MIF.
-  hex2mif.py rtl/apple3_rom.hex rtl/apple3_rom.mif
+  hex2mif.py roms/apple3_rom.hex roms/apple3_rom.mif
 """
 import sys
 

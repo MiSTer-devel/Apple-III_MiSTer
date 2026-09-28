@@ -20,11 +20,17 @@ prepare_build_id() {
   print -r -- "\`define BUILD_DATE \"$(date +%y%m%d)\"" > build_id.v
 }
 
+# Apple's ROMs are built in from the images roms/Makefile makes.
+prepare_roms() {
+  make -s -C roms
+}
+
 case "$MODE" in
   clean)
     rm -rf db incremental_db output_files *.qws *.rpt *.summary *.smsg *.done *.jdi *.pin *.sld c5_pin_model_dump.txt build_*.log
     ;;
   map)
+    prepare_roms
     prepare_build_id
     run_q quartus_map.exe --read_settings_files=on --write_settings_files=off $PROJ -c $PROJ 2>&1 | tee "$LOG" >/dev/null
     rc=$pipestatus[1]
@@ -33,6 +39,7 @@ case "$MODE" in
     (( rc == 0 )) || exit $rc
     ;;
   compile)
+    prepare_roms
     prepare_build_id
     run_q quartus_sh.exe --flow compile $PROJ 2>&1 | tee "$LOG" >/dev/null
     rc=$pipestatus[1]

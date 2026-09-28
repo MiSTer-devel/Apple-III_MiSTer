@@ -10,7 +10,8 @@
 // which setups from before the ROM was built in still hold, is Apple's ROM,
 // and the OSD's choice of soshdboot must not be undone by it.
 //
-// apple3_rom.mif is apple3_rom.hex for Quartus; tools/hex2mif.py makes it.
+// Apple's ROM is roms/apple3_rom.hex, and roms/apple3_rom.mif for Quartus;
+// roms/Makefile makes both from the ROM placed there.
 // rtl/soshdboot/build_rom.sh makes both files of the soshdboot ROM.
 
 module apple3_rom #(
@@ -30,7 +31,7 @@ module apple3_rom #(
 	always_ff @(posedge clk) soshdboot_d <= soshdboot;
 
 `ifdef APPLE3_USE_ALTSYNCRAM
-	localparam STOCK_MIF     = "rtl/apple3_rom.mif";
+	localparam STOCK_MIF     = "roms/apple3_rom.mif";
 	localparam SOSHDBOOT_MIF = "rtl/soshdboot/apple3hdboot.mif";
 
 	wire  [7:0] low_q;
@@ -76,7 +77,7 @@ module apple3_rom #(
 	always_ff @(posedge clk) bank_select_d <= addr[12];
 	always_comb q = soshdboot_d ? soshdboot_q : bank_select_d ? high_q : low_q;
 `else
-	localparam STOCK_FILE     = "rtl/apple3_rom.hex";
+	localparam STOCK_FILE     = "roms/apple3_rom.hex";
 	localparam SOSHDBOOT_FILE = "rtl/soshdboot/apple3hdboot.hex";
 
 	(* ramstyle = "M10K" *)logic [7:0] mem          [0:8191];

@@ -19,6 +19,7 @@ check ghdl      "converts the VHDL 6502 and VIA to Verilog"
 check ca65      "cc65 assembler, test ROMs"
 check ld65      "cc65 linker"
 check xxd       "ROM hex dumps"
+check shasum    "checks the ROMs in roms/"
 check c++       "C++ compiler for Verilator"
 check make      "Verilator builds"
 check python3   "disk fixtures"
@@ -39,7 +40,7 @@ if [ "$missing" -ne 0 ]; then
 	echo
 	echo "Install what is missing:"
 	echo "  macOS:          brew install icarus-verilog verilator cc65 && brew install --cask ghdl"
-	echo "  Debian/Ubuntu:  sudo apt install iverilog verilator ghdl cc65 xxd g++ make python3"
+	echo "  Debian/Ubuntu:  sudo apt install iverilog verilator ghdl cc65 xxd perl g++ make python3"
 	exit 1
 fi
 echo "All simulation tools found."

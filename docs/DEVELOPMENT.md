@@ -49,17 +49,18 @@ behaviour to its source.
 
 ## Boot ROM details
 
-Apple's stock boot ROM is built into the core, as `rtl/apple3_rom.hex` for
-simulation and `rtl/apple3_rom.mif` for Quartus (`tools/hex2mif.py` makes the
-second from the first, and `sim/run_tests.sh` checks that it has). It is the
-4,096-byte ROM MAME calls `apple3.rom`:
+Apple's stock boot ROM is built into the core, as `roms/apple3_rom.hex` for
+simulation and `roms/apple3_rom.mif` for Quartus, which `roms/Makefile` makes
+from the ROM placed there ([Building](#building)). It is the 4,096-byte ROM
+MAME calls `apple3.rom`:
 
 | Size | CRC32 | SHA-1 |
 |---|---|---|
 | 4096 | `1af7ec42` | `8043f914ebdcdab9838dbb78f8a2ee3867d210d2` |
 
 A widely circulated copy differs in 48 bytes that sit underneath the VIA
-registers and boots identically. An 8,192-byte image is treated as two 4 KiB
+registers and boots identically, but `roms/Makefile` takes only the dump above.
+An 8,192-byte image is treated as two 4 KiB
 banks selected by environment register bit 1, which is how custom dual-bank
 ROMs are laid out.
 
@@ -94,6 +95,21 @@ turns it **Off**. See
 and [sim/serial/README.md](../sim/serial/README.md) for the serial tests.
 
 ## Building
+
+Apple's ROMs are built into the core but cannot be redistributed, so they are
+not in the repository. Put them in `roms/` under MAME's names, or MAME's
+`apple3.zip` and `a2mouse.zip`, which hold them:
+
+| File | ROM | MAME set |
+|---|---|---|
+| `apple3.rom` | boot ROM, 4 KiB | `apple3` |
+| `341-0270-c.4b` | [mouse card](MOUSE.md) firmware EPROM, 2 KiB | `a2mouse` |
+| `341-0269.2b` | mouse card 68705 program, 2 KiB | `a2mouse` |
+
+`make roms` checks each against the SHA-1 the core was tested with and writes
+the hex images the RTL and simulations read, plus the MIF Quartus needs for
+the boot ROM. `build.sh`, `make test-quick`, `make test` and `make boot` run
+it first; on Windows or Linux run `make -C roms` before opening the project.
 
 The validated build uses Quartus Prime 17.0.2. `build.sh` drives
 Quartus under CrossOver on macOS; on Windows or Linux open `Apple-III.qpf` in
@@ -216,10 +232,10 @@ make boot ARGS=--soshdboot ...              # the built-in soshdboot ROM
 make boot ROM=other.rom ...                 # another 4 KiB boot ROM
 ```
 
-The two boot ROMs and the [mouse card's two ROMs](MOUSE.md) are the only
-Apple images in the repository, so the tests that compare against Apple's PROMs take
-their dumps from the environment and skip when one is missing; `make test`
-passes on a fresh clone.
+The tests need Apple's ROMs in `roms/` ([Building](#building)). Apple's PROMs
+are not in the repository either, so the tests that compare against them take
+their dumps from the environment and skip when one is missing; with the ROMs
+in place, `make test` passes on a fresh clone.
 
 | Variable | File | Used by | Source |
 |---|---|---|---|

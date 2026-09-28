@@ -125,7 +125,10 @@ Memory, Boot ROM and the slots take effect at the next reset.
 
 ## Building and simulation
 
-Open `Apple-III.qpf` in Quartus Prime 17.0 and compile, or run
+Apple's ROMs are not included: put MAME's `apple3.rom`, `341-0270-c.4b` and
+`341-0269.2b` (or `apple3.zip` and `a2mouse.zip`) in `roms/` and run
+`make roms` ([details](docs/DEVELOPMENT.md#building)). Then open
+`Apple-III.qpf` in Quartus Prime 17.0 and compile, or run
 `./build.sh compile` on a Mac with Quartus under CrossOver. The simulation needs
 Icarus Verilog, Verilator 5, GHDL and cc65:
 

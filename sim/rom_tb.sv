@@ -14,7 +14,7 @@ module rom_tb;
 
 	logic [7:0] stock[4096], hdboot[4096];
 	initial begin
-		$readmemh("rtl/apple3_rom.hex", stock);
+		$readmemh("roms/apple3_rom.hex", stock);
 		$readmemh("rtl/soshdboot/apple3hdboot.hex", hdboot);
 	end
 

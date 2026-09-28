@@ -15,8 +15,8 @@ Original notices are retained; see [COPYING](COPYING).
 `applemouse.v` itself is **not** imported: [`../apple3_mouse_card.sv`](../apple3_mouse_card.sv)
 puts the card on the Apple /// slot bus and makes the mouse's pulses its own
 way. That core's two ROM tables, Apple's firmware EPROM (341-0270-C) and 68705
-program (341-0269), are here as `../apple3_mouse_eprom.hex` and
-`../apple3_mouse_mcu.hex`, byte for byte.
+program (341-0269), are not copied: [`roms/Makefile`](../../../roms/Makefile)
+makes the same images, byte for byte, from MAME's `a2mouse` ROMs placed there.
 [Mouse card notes](../../../docs/MOUSE.md) describe the card.
 
 Local changes:

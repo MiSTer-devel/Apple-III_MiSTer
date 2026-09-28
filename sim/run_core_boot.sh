@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# The stock boot ROM is rtl/apple3_rom.hex; APPLE3_ROM names another 4 KiB
+# The stock boot ROM is roms/apple3_rom.hex; APPLE3_ROM names another 4 KiB
 # image, such as the soshdboot ROM.
 mkdir -p sim/gen
 if [[ -n ${APPLE3_ROM:-} ]]; then
@@ -12,7 +12,7 @@ if [[ -n ${APPLE3_ROM:-} ]]; then
 	fi
 	xxd -p -c 1 "$APPLE3_ROM" > sim/gen/apple3.rom.hex
 else
-	cp rtl/apple3_rom.hex sim/gen/apple3.rom.hex
+	cp roms/apple3_rom.hex sim/gen/apple3.rom.hex
 fi
 ./sim/gen_vhdl.sh >/dev/null
 

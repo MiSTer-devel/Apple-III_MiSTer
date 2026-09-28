@@ -5,13 +5,14 @@ MiSTer's mouse. It is the card an Apple /// used: Apple never made a /// one,
 and its SOS mouse driver, "Apple /// RAT Driver, for Apple ][-//e Mouse Card"
 (rls 11/85), and ON THREE's Desktop Manager both run that card in a slot.
 
-The card's two ROMs are built in, as they are in the Apple II MiSTer core,
-from whose tables these images come; they match MAME's `a2mouse` set.
+The card's two ROMs are built in, as they are in the Apple II MiSTer core.
+They are MAME's `a2mouse` set, placed in `roms/`, from which `roms/Makefile`
+makes these images ([Building](DEVELOPMENT.md#building)):
 
-| Image | Part | Size | CRC32 | SHA-1 |
-|---|---|---|---|---|
-| `rtl/cards/apple3_mouse_eprom.hex` | firmware EPROM, 341-0270-C | 2048 | `0bcd1e8e` | `3a9d881a8a8d30f55b9719aceebbcf717f829d6f` |
-| `rtl/cards/apple3_mouse_mcu.hex` | 68705P3 program, 341-0269 | 2048 | `94067f16` | `3a2baa6648efe4456d3ec3721216e57c64f7acfc` |
+| Image | MAME file | Part | Size | CRC32 | SHA-1 |
+|---|---|---|---|---|---|
+| `roms/apple3_mouse_eprom.hex` | `341-0270-c.4b` | firmware EPROM, 341-0270-C | 2048 | `0bcd1e8e` | `3a9d881a8a8d30f55b9719aceebbcf717f829d6f` |
+| `roms/apple3_mouse_mcu.hex` | `341-0269.2b` | 68705P3 program, 341-0269 | 2048 | `94067f16` | `3a2baa6648efe4456d3ec3721216e57c64f7acfc` |
 
 Choose **Mouse Card** for a slot in the OSD's **Slot** options
 ([choosing the cards](SLOTS.md#choosing-the-cards)). Slot 4 is where Rob

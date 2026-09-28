@@ -48,6 +48,10 @@ lint/gen/
 *.fst
 *.ghw
 
+# --- Apple's ROMs: supplied by the builder; see roms/Makefile ---
+/roms/*
+!/roms/Makefile
+
 # --- ROMs and disk images (copyrighted, keep local) ---
 *.rom
 *.bin
