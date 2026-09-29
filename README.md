@@ -64,8 +64,8 @@ comes from
 
 ## Disk images
 
-- **Floppies:** WOZ, DSK, DO, PO, NIB and 2MG, writable. WOZ1, flux WOZ and
-  zipped images are read-only.
+- **Floppies:** WOZ, DSK, DO, PO, NIB and 2MG, writable. Flux WOZ,
+  write-protected WOZ and zipped images are read-only.
 - **Hard disks:** PO, HDV and ProDOS-order 2MG, written in place.
 - Copy-protected originals boot from plain sector dumps.
 - A2R flux captures: export them to WOZ with the free

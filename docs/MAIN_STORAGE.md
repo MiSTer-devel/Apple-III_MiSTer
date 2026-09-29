@@ -2,8 +2,8 @@
 
 This core requires the companion Main on the `apple3-disk-storage` branch of
 [jakesjews/Main_MiSTer](https://github.com/jakesjews/Main_MiSTer/tree/apple3-disk-storage):
-one commit on MiSTer-devel/Main_MiSTer commit
-`5fb9bd102024ac16a92291f291318d5846dcaae2`. The commit also carries
+a short series of commits on MiSTer-devel/Main_MiSTer commit
+`5fb9bd102024ac16a92291f291318d5846dcaae2`. The first commit also carries
 Newsdee's still-open upstream
 [PR #1330](https://github.com/MiSTer-devel/Main_MiSTer/pull/1330) unchanged
 (the //e and IIgs WOZ CRC refresh and save-state naming), because the Apple
@@ -25,7 +25,7 @@ hardware retains its own P6 controller and Disk III drive logic.
 | S1 | First external Disk III (.D2) | Native WOZ2, sector-image and NIB writes |
 | S2 | Second external Disk III (.D3) | Native WOZ2, sector-image and NIB writes |
 | S3 | Third external Disk III (.D4) | Native WOZ2, sector-image and NIB writes |
-| S4, S5 | Block Disks 1 and 2, the block card's drives (.PROFILE and .PB2 with Problock3) | Raw ProDOS-order blocks written in place; DC42 and locked 2MG read-only |
+| S4, S5 | Block Disks 1 and 2, the block card's drives (.PROFILE and .PB2 with Problock3) | ProDOS-order blocks written in place |
 | S6, S7 | ProFile Disks 1 and 2, one for each ProFile card (Apple's .PROFILE driver) | As S4 and S5 |
 
 The FPGA exposes **S0 through S7**. S4 and S5 feed the
@@ -46,8 +46,9 @@ and write policies.
   or DOS 3.3 VTOC, read in either order, with upstream's detector; the Apple III
   code adds the same check for SOS volumes with 12 directory entries per block.
   When neither is present, DSK/DO mean DOS order and PO ProDOS order. 2MG's
-  format, data offset, payload length and volume flags take precedence. Invalid
-  headers are rejected.
+  format, data offset, payload length and volume flags take precedence. A 2MG
+  header that doesn't parse leaves the file treated as a raw image, as on the
+  //e and IIgs.
 - A sector image has no address fields. Their volume number is 254 unless a
   2MG header gives one or the image has a DOS 3.3 VTOC, whose volume byte is
   then used: `INIT` writes that number to the VTOC and to every address field,
@@ -75,8 +76,9 @@ and write policies.
   on the //e and IIgs. A WOZ inside a zip is read into RAM instead, because a
   zip is slow to seek back, and is read-only. Converted images keep a separate
   buffer per drive.
-- WOZ1, FLUX, archived and write-protected images are read-only. Writable
-  WOZ2 persists only existing track allocations. It cannot allocate an unmapped
+- Archived images and files that are read-only on the SD card are read-only.
+  The drive itself refuses writes to a FLUX WOZ or one marked write-protected,
+  and writes only existing track allocations: it cannot allocate an unmapped
   track or resize tracks.
 - DSK, DO, PO and sector-order 2MG images are written in place. The drive saves
   a track one 512-byte block at a time, so the track is torn until its last
@@ -86,7 +88,7 @@ and write policies.
   own sector order and behind any 2MG header, with one 4 KiB write per track.
   The image is opened O_SYNC, and sixteen separate sector writes held the
   drive's cache busy long enough to break SOS's formatter. A damaged sector
-  never reaches the file, and Main shows how many were not saved. The
+  never reaches the file. The
   reconstructed SOS address-field key is not stored, because sector images have
   no address fields.
 - NIB sources (`.nib` and 2MG NIB payloads) are writable through upstream's
@@ -94,8 +96,7 @@ and write policies.
   sector at a time, so a saved track is stored only when all sixteen sectors
   verify. It is re-nibblized to the canonical 6,656-byte layout, keeps each
   sector's address-field volume byte, which is where SOS's protection key
-  lives, and goes to the file in one write. Main reports a track it could not
-  store.
+  lives, and goes to the file in one write.
 - Converted Apple III tracks hold 51,424 cells read at 3.875 us (INFO timing
   31), not the bare 50,304 at 4 us. The drive model consumes one cell per bit
   the machine writes, so a track's cell count is what the machine's own
@@ -151,8 +152,7 @@ Tests cover four simultaneous mounts, independent write protection, writes and
 replacement/ejection, format/slot matching, DOS/PO/2MG equivalence, bit-packed GCR, NIB
 preservation, NIB write-back of whole verified tracks with their volume bytes,
 multi-block transfers, read-only enforcement, block-image writes
-behind a 2MG header with out-of-range writes ignored and protected images
-untouched, and native WOZ mounts that keep their write protection. The
+behind a 2MG header, and native WOZ passthrough. The
 ProDOS-order map is
 pinned to block positions rather than to the codec's own inverse, and the
 protection key must appear only for an encrypted `SOS.INTERP`. Sector write-back tests

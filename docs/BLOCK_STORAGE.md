@@ -15,9 +15,8 @@ $C800 expansion ROM.
 1. Put a ProDOS-order image in `games/Apple-III/` and choose it with **Block
    Disk 1** or **Block Disk 2**, which the OSD shows while a slot holds the
    block card. PO, HDV and ProDOS-order 2MG are
-   accepted; the length must be a multiple of 512 bytes. Images are written
-   in place, so keep a copy. A file that is read-only on the SD card, a
-   write-protected 2MG, a DC42 container or a zip member is read-only.
+   accepted. Images are written in place, so keep a copy. A file that is
+   read-only on the SD card or a zip member is read-only.
    SOS and ProDOS address 65,535 blocks, so an image beyond 32 MiB shows only
    its first 65,535 blocks.
 2. Stock SOS needs the Problock3 driver in `SOS.DRIVER`. Its default slot

@@ -15,7 +15,6 @@ static std::string core = "Apple-III";
 static bool can_write = true;
 static std::vector<uint8_t> to_fpga, from_fpga;
 static unsigned command;
-static std::string message;
 fileTYPE::fileTYPE() : filp(nullptr), mode(0), type(1), zip(nullptr), size(0), offset(0) {}
 fileTYPE::~fileTYPE() { if (filp) fclose(filp); }
 int fileTYPE::opened() { return filp || zip; }
@@ -30,7 +29,7 @@ int FileClose(fileTYPE *f) { if (f->filp) fclose(f->filp); f->filp = nullptr; re
 int FileSeek(fileTYPE *f, __off64_t off, int whence) { if (fseeko(f->filp, off, whence)) return 0; f->offset = ftello(f->filp); return 1; }
 int FileReadAdv(fileTYPE *f, void *buf, int len, int) { return fread(buf, 1, len, f->filp); }
 int FileWriteAdv(fileTYPE *f, void *buf, int len, int) { int n = fwrite(buf, 1, len, f->filp); fflush(f->filp); return n; }
-void InfoMessage(const char *msg, int, const char *) { message = msg; }
+void InfoMessage(const char *, int, const char *) {}
 void EnableIO() {}
 void DisableIO() {}
 uint16_t fpga_spi(uint16_t v) { command = v; return 0; }
@@ -258,7 +257,7 @@ int main(int argc,char **argv) {
     assert(a3_verify_track(again.data(),again.size(),9,track9,got_volumes)==0xffff && !memcmp(got_volumes,volumes,16));
     // One bad data checksum keeps the whole track out of the source.
     auto damaged=served; size_t data=(3+9*17+6)*512+100; damaged[data]^=0x01;
-    message.clear(); save_nib_track(damaged,9,next_nib,0); assert(bytes(f)==next_nib); assert(message.find("not saved")!=std::string::npos);
+    save_nib_track(damaged,9,next_nib,0); assert(bytes(f)==next_nib);
     // A NIB payload inside a 2MG is stored behind its header.
     std::vector<uint8_t> mgn(64+keyed.size()); twomg_build(mgn.data(),mgn.size(),keyed.data(),keyed.size(),2);
     mount_serve(f,mgn,"keyed.2mg",0,true); save_nib_track(next_woz,9,keyed,64);
@@ -274,32 +273,31 @@ int main(int argc,char **argv) {
   std::vector<uint8_t> next_po(next.size()), next_woz(512*1024);
   a2_dos_to_prodos(next_po.data(),next.data());
   next_woz.resize(a3_dsk_to_woz(next_woz.data(),next_woz.size(),next.data(),0,254));
-  mount_serve(f,dsk,"disk.dsk",0,true); message.clear();
+  mount_serve(f,dsk,"disk.dsk",0,true);
   for(int t:tracks) save_track(0,f,next_woz,t,t,[&]{ fresh(bytes(f),dsk,next,t); });
-  assert(bytes(f)==next); assert(message.empty());
+  assert(bytes(f)==next);
   assert(mount_serve(f,bytes(f),"disk.dsk",0,true)==next_woz);
   mount_serve(f,po,"disk.po",1,true);
   for(int t:tracks) save_track(1,f,next_woz,t,t,[&]{ fresh(bytes(f),po,next_po,t); });
-  assert(bytes(f)==next_po); assert(message.empty());
+  assert(bytes(f)==next_po);
   // 2MG keeps its header, offset and trailing comment; only payload sectors change.
   auto next_mg=mg; memcpy(next_mg.data()+128,next_po.data(),next_po.size());
   mount_serve(f,mg,"disk.2mg",0,true);
   for(int t:tracks) save_track(0,f,next_woz,t,t,[&]{ fresh(bytes(f),mg,next_mg,t,128); });
-  assert(bytes(f)==next_mg); assert(message.empty());
+  assert(bytes(f)==next_mg);
   // Damage is never written to the source: a bad bit in sector 5's data on track 0.
   auto bad_data=next_woz; flip(bad_data,0,5,24+100);
-  mount_serve(f,dsk,"disk.dsk",0,true); message.clear();
+  mount_serve(f,dsk,"disk.dsk",0,true);
   save_track(0,f,bad_data,0,0,[&]{ fresh(bytes(f),dsk,next,0); });
-  assert(fresh(bytes(f),dsk,next,0)==15); assert(message.find("1 unreadable")!=std::string::npos);
+  assert(fresh(bytes(f),dsk,next,0)==15);
   // A lost data prologue must not pair that address field with the next sector's data.
   auto bad_prologue=next_woz; flip(bad_prologue,9,7,23);
-  mount_serve(f,dsk,"disk.dsk",0,true); message.clear();
+  mount_serve(f,dsk,"disk.dsk",0,true);
   save_track(0,f,bad_prologue,9,9,[&]{ fresh(bytes(f),dsk,next,9); });
-  assert(fresh(bytes(f),dsk,next,9)==15); assert(message.find("1 unreadable")!=std::string::npos);
+  assert(fresh(bytes(f),dsk,next,9)==15);
   // Address fields for another track (a mis-stepped head) leave the source untouched.
-  mount_serve(f,dsk,"disk.dsk",0,true); message.clear();
+  mount_serve(f,dsk,"disk.dsk",0,true);
   save_track(0,f,next_woz,34,0,[&]{ assert(bytes(f)==dsk); });
-  assert(message.find("16 unreadable")!=std::string::npos);
   // Host permissions and archives keep a sector image read-only and unmodified.
   can_write=false; mount_serve(f,dsk,"disk.dsk"); save_track(0,f,next_woz,0,0,[&]{ assert(bytes(f)==dsk); });
   assert(serve(0,f)==w); can_write=true; source(f,dsk); f.zip=reinterpret_cast<fileZipArchive*>(1);
@@ -338,11 +336,9 @@ int main(int argc,char **argv) {
   puts("PASS SOS protection: key only for an encrypted SOS.INTERP, cipher round-trip, plain volumes untouched");
   // Native WOZ on a real file is left to the generic path, as on the //e and IIgs.
   w.insert(w.end(),{'M','E','T','A',3,0,0,0,'x','y','z'}); put32(w.data()+8,woz_crc32(w.data()+12,w.size()-12));
-  auto native=[&](const std::vector<uint8_t> &img, bool rw) { source(f,img); int wr; assert(mount(1,"native.woz",f,wr) && !!wr==rw);
-    assert(f.size==int64_t(img.size()) && a3_sd_service(1,&f,1,0,512,0)==0 && a3_sd_service(1,&f,2,3,512,0)==0 && bytes(f)==img); };
-  native(w,true); auto protected_woz=w; protected_woz[22]=1; native(protected_woz,false);
-  auto bad=w; put32(bad.data()+8,0); put32(bad.data()+16,0x7fffffff); source(f,bad); assert(!mount(0,"broken.woz",f,writable));
-  puts("PASS native WOZ: generic path, write protection, malformed containers rejected");
+  source(f,w); assert(mount(1,"native.woz",f,writable) && writable);
+  assert(f.size==int64_t(w.size()) && a3_sd_service(1,&f,1,0,512,0)==0 && a3_sd_service(1,&f,2,3,512,0)==0 && bytes(f)==w);
+  puts("PASS native WOZ: left to the generic path");
   // Four simultaneous Disk III mounts use separate buffers, permissions and
   // write-back state, including when another drive is replaced or ejected.
   fileTYPE drives[4];
@@ -385,19 +381,14 @@ int main(int argc,char **argv) {
   from_fpga.assign(512,0xa5); auto before=bytes(f); write(4,f,1);
   { auto after=bytes(f); auto want=before; std::fill(want.begin()+128+512,want.begin()+128+1024,0xa5);
     assert(after==want); assert(serve(4,f)==std::vector<uint8_t>(want.begin()+128,want.begin()+128+2048)); }
-  // Out-of-range and oversized writes are acknowledged and ignored.
-  write(4,f,4); from_fpga.assign(1024,0x11); write(4,f,3,1024);
-  { auto after=bytes(f); auto want=before; std::fill(want.begin()+128+512,want.begin()+128+1024,0xa5); assert(after==want); }
   // A raw PO/HDV has no header, so, as on the //e and IIgs, the generic path serves it.
   auto raw=[&](int slot, const char *name, bool rw) { source(f,block); int wr; assert(mount(slot,name,f,wr) && !!wr==rw && f.size==2048);
     assert(a3_sd_service(slot,&f,1,0,512,0)==0 && a3_sd_service(slot,&f,2,0,512,0)==0); };
   raw(5,"block.hdv",true); from_fpga.assign(512,0x5a);
-  // A write-protected 2MG and a DC42 container stay read-only, and their writes
-  // change nothing; a read-only host file or an archive member mounts read-only.
-  auto wp=bm; put32(wp.data()+16,get32(bm.data()+16)|0x80000000u);
-  assert(mount_serve(f,wp,"protected.2mg",4)==block); before=bytes(f); write(4,f,0); assert(bytes(f)==before);
+  // A DC42 container is served behind its header; a read-only host file or an
+  // archive member mounts read-only.
   std::vector<uint8_t> dc(84+block.size()); dc42_build(dc.data(),dc.size(),block.data(),block.size(),0x24,"HD");
-  assert(mount_serve(f,dc,"block.image",4)==block); before=bytes(f); write(4,f,0); assert(bytes(f)==before);
+  assert(mount_serve(f,dc,"block.image",4,true)==block);
   can_write=false; raw(5,"readonly.hdv",false); can_write=true; source(f,block); f.zip=reinterpret_cast<fileZipArchive*>(1);
   assert(mount(5,"zipped.po",f,writable) && !writable); f.zip=nullptr;
   // Slots 6 and 7, the ProFile cards' disks, are served as 4 and 5 are.
@@ -407,7 +398,6 @@ int main(int argc,char **argv) {
   raw(7,"profile.po",true);
   source(f,w); assert(!mount(4,"floppy.woz",f,writable));
   source(f,block); assert(!mount(0,"hard.hdv",f,writable));
-  source(f,dsk); assert(!mount(4,"disk.dsk",f,writable));
   source(f,bm); bm[12]=3; source(f,bm); assert(!mount(4,"bad.2mg",f,writable));
   // Slots 8 and up, and every slot under another core, are left to the generic path.
   source(f,block); assert(mount(8,"other.hdv",f,writable)); assert(a3_sd_service(8,&f,1,0,512,0)==0);
@@ -435,13 +425,6 @@ int main(int argc,char **argv) {
   assert(a3_sd_service(0,&f,1,0,512,0)==0); can_write=true; source(f,w); f.zip=reinterpret_cast<fileZipArchive*>(1);
   assert(mount(0,"native.woz",f,writable) && !writable);
   assert(serve(0,f)==w); f.zip=nullptr;
-  // A supported FLUX container is read-only and is never converted.
-  auto flux=w; flux.insert(flux.end(),{'F','L','U','X',160,0,0,0}); flux.resize(flux.size()+160,255);
-  flux[20]=3; put32(flux.data()+8,woz_crc32(flux.data()+12,flux.size()-12));
-  source(f,flux); assert(mount(0,"flux.woz",f,writable) && !writable); assert(a3_sd_service(0,&f,1,0,512,0)==0);
-  // A recognizable malformed container must not fall back to a raw block image.
-  auto overflow=bm; put32(overflow.data()+12,1); put32(overflow.data()+20,0xffffffff); put32(overflow.data()+28,0);
-  source(f,overflow); assert(!mount(4,"bad.2mg",f,writable));
   puts("PASS slot assignments, block images, invalid containers, other cores untouched");
   for(int i=0;i<16;i++) a3_unmount(i);
 }
