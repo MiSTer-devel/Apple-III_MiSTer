@@ -82,19 +82,18 @@ and write policies.
   track or resize tracks.
 - DSK, DO, PO and sector-order 2MG images are written in place. The drive saves
   a track one 512-byte block at a time, so the track is torn until its last
-  block arrives. Main decodes it then with a strict parser: address checksum and
-  track number, a data field within the following gap, valid GCR codes, data
-  checksum and both epilogs. Verified sectors replace the file's, in the file's
-  own sector order and behind any 2MG header, with one 4 KiB write per track.
+  block arrives. Main decodes it then the way upstream's //e and IIgs decoder
+  does, without checksum, track-number or epilog checks; the first copy of a
+  sector wins. The sectors it finds replace the file's, in the file's own
+  sector order and behind any 2MG header, with one 4 KiB write per track.
   The image is opened O_SYNC, and sixteen separate sector writes held the
-  drive's cache busy long enough to break SOS's formatter. A damaged sector
-  never reaches the file. The
-  reconstructed SOS address-field key is not stored, because sector images have
-  no address fields.
+  drive's cache busy long enough to break SOS's formatter. The reconstructed
+  SOS address-field key is not stored, because sector images have no address
+  fields.
 - NIB sources (`.nib` and 2MG NIB payloads) are writable through upstream's
   NIB write-back, adapted for the Apple III. A NIB track cannot be patched a
   sector at a time, so a saved track is stored only when all sixteen sectors
-  verify. It is re-nibblized to the canonical 6,656-byte layout, keeps each
+  are found. It is re-nibblized to the canonical 6,656-byte layout, keeps each
   sector's address-field volume byte, which is where SOS's protection key
   lives, and goes to the file in one write.
 - Converted Apple III tracks hold 51,424 cells read at 3.875 us (INFO timing
@@ -150,16 +149,14 @@ Main checkout is not `../Main_MiSTer-AppleIII`. It builds Main's
 and undefined-behavior sanitizers.
 Tests cover four simultaneous mounts, independent write protection, writes and
 replacement/ejection, format/slot matching, DOS/PO/2MG equivalence, bit-packed GCR, NIB
-preservation, NIB write-back of whole verified tracks with their volume bytes,
+preservation, NIB write-back of whole tracks with their volume bytes,
 multi-block transfers, read-only enforcement, block-image writes
 behind a 2MG header, and native WOZ passthrough. The
 ProDOS-order map is
 pinned to block positions rather than to the codec's own inverse, and the
 protection key must appear only for an encrypted `SOS.INTERP`. Sector write-back tests
 save tracks block by block into DSK, PO and 2MG sources and check after every
-block that each sector holds either its old or its new contents; a bad data
-checksum, a lost data prologue and another track's address fields must all leave
-the affected sectors untouched. The tests live here rather than in the Main
+block that each sector holds either its old or its new contents. The tests live here rather than in the Main
 branch or the patch: upstream Main has no test tree.
 
 After that build, use the same backend to save an explicit WOZ2 copy of a sector

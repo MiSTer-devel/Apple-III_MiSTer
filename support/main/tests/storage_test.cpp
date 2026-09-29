@@ -111,28 +111,8 @@ static std::vector<uint8_t> mount_serve(fileTYPE &f, const std::vector<uint8_t> 
 // Every track of an Apple III WOZ decodes completely into a DOS-order image.
 static bool decode_all(const std::vector<uint8_t> &woz, std::vector<uint8_t> &dsk) {
   uint8_t vols[16];
-  for(int t=0;t<35;t++) if(a3_verify_track(woz.data(),woz.size(),t,dsk.data()+t*4096,vols)!=0xffff) return false;
+  for(int t=0;t<35;t++) if(a3_decode_track(woz.data(),woz.size(),t,dsk.data()+t*4096,vols)!=0xffff) return false;
   return true;
-}
-// The nibbles of track t over two revolutions, each with the bit index of its last bit.
-static std::vector<std::pair<uint8_t,unsigned>> nibbles(const std::vector<uint8_t> &woz, int t) {
-  unsigned start=(woz[256+t*8]|woz[257+t*8]<<8)*512, bits=get32(&woz[260+t*8]);
-  std::vector<std::pair<uint8_t,unsigned>> out; uint8_t shift=0;
-  for(unsigned i=0;i<2*bits;i++) {
-    unsigned pos=i%bits; shift=shift<<1|(woz[start+pos/8]>>(7-pos%8)&1);
-    if(shift&0x80) { out.push_back({shift,pos}); shift=0; }
-  }
-  return out;
-}
-// Flip the low bit of the nibble `after` positions past sector s's address prologue on track t.
-// Address field: D5 AA 96 (0-2) vol trk sec chk (3-10) DE AA EB, 7 sync, D5 AA AD (21-23), data (24+).
-static void flip(std::vector<uint8_t> &woz, int t, int s, int after) {
-  auto n=nibbles(woz,t); unsigned start=(woz[256+t*8]|woz[257+t*8]<<8)*512;
-  for(size_t i=0;i+after<n.size();i++)
-    if(n[i].first==0xd5&&n[i+1].first==0xaa&&n[i+2].first==0x96&&n[i+7].first==((s>>1)|0xaa)&&n[i+8].first==(s|0xaa)) {
-      unsigned bit=n[i+after].second; woz[start+bit/8]^=0x80>>(bit%8); return;
-    }
-  assert(false);
 }
 // The drive saves track `from` of woz over track `to` as consecutive 512-byte blocks,
 // exactly as the FPGA controller does; each() inspects the source after every block.
@@ -209,7 +189,7 @@ int main(int argc,char **argv) {
     auto all=[&](const std::vector<uint8_t> &woz,uint8_t want) {
       uint8_t got[16], sectors[4096];
       for(int t:{0,9,17,34}) {
-        assert(a3_verify_track(woz.data(),woz.size(),t,sectors,got)==0xffff);
+        assert(a3_decode_track(woz.data(),woz.size(),t,sectors,got)==0xffff);
         for(int s=0;s<16;s++) assert(got[s]==want);
       }
     };
@@ -223,9 +203,9 @@ int main(int argc,char **argv) {
     puts("PASS DOS 3.3 volume: VTOC volume in the address fields, 2MG volume first, 254 otherwise");
   }
   // Apple /// NIB write-back. The drive saves a track as seventeen blocks; the source
-  // changes only when the last one arrives and all sixteen sectors verify. The track
-  // is re-nibblized whole and keeps its address-field volume bytes, where SOS's
-  // protection key lives. A track with a damaged sector is not stored.
+  // changes only when the last one arrives and all sixteen sectors are found. The
+  // track is re-nibblized whole and keeps its address-field volume bytes, where
+  // SOS's protection key lives.
   {
     uint8_t volumes[16]; memset(volumes,254,16);
     std::vector<uint8_t> keyed(A2_NIB_IMAGE_SIZE); a2_dsk_to_nib(keyed.data(),dsk.data());
@@ -254,17 +234,14 @@ int main(int argc,char **argv) {
     auto saved=bytes(f); auto again=mount_serve(f,saved,"keyed.nib",0,true); assert(again==next_woz);
     assert(decode_all(again,back) && back==next_dsk);
     uint8_t got_volumes[16], track9[4096];
-    assert(a3_verify_track(again.data(),again.size(),9,track9,got_volumes)==0xffff && !memcmp(got_volumes,volumes,16));
-    // One bad data checksum keeps the whole track out of the source.
-    auto damaged=served; size_t data=(3+9*17+6)*512+100; damaged[data]^=0x01;
-    save_nib_track(damaged,9,next_nib,0); assert(bytes(f)==next_nib);
+    assert(a3_decode_track(again.data(),again.size(),9,track9,got_volumes)==0xffff && !memcmp(got_volumes,volumes,16));
     // A NIB payload inside a 2MG is stored behind its header.
     std::vector<uint8_t> mgn(64+keyed.size()); twomg_build(mgn.data(),mgn.size(),keyed.data(),keyed.size(),2);
     mount_serve(f,mgn,"keyed.2mg",0,true); save_nib_track(next_woz,9,keyed,64);
     auto stored=bytes(f); assert(!memcmp(stored.data(),mgn.data(),64) && !memcmp(stored.data()+64,next_nib.data(),next_nib.size()));
     // A read-only host file keeps the NIB read-only.
     can_write=false; mount_serve(f,keyed,"keyed.nib",0,false); save_nib_track(next_woz,9,keyed,0); assert(bytes(f)==keyed); can_write=true;
-    puts("PASS Apple III NIB write-back: whole verified tracks, volume bytes kept, damaged tracks and read-only files untouched");
+    puts("PASS Apple III NIB write-back: whole tracks, volume bytes kept, read-only files untouched");
   }
   // Apple /// sector images persist writes. Tracks 0, 9 (SOS key field) and 34 (largest
   // synchronized rotation) change in every sector and are saved block by block.
@@ -285,24 +262,11 @@ int main(int argc,char **argv) {
   mount_serve(f,mg,"disk.2mg",0,true);
   for(int t:tracks) save_track(0,f,next_woz,t,t,[&]{ fresh(bytes(f),mg,next_mg,t,128); });
   assert(bytes(f)==next_mg);
-  // Damage is never written to the source: a bad bit in sector 5's data on track 0.
-  auto bad_data=next_woz; flip(bad_data,0,5,24+100);
-  mount_serve(f,dsk,"disk.dsk",0,true);
-  save_track(0,f,bad_data,0,0,[&]{ fresh(bytes(f),dsk,next,0); });
-  assert(fresh(bytes(f),dsk,next,0)==15);
-  // A lost data prologue must not pair that address field with the next sector's data.
-  auto bad_prologue=next_woz; flip(bad_prologue,9,7,23);
-  mount_serve(f,dsk,"disk.dsk",0,true);
-  save_track(0,f,bad_prologue,9,9,[&]{ fresh(bytes(f),dsk,next,9); });
-  assert(fresh(bytes(f),dsk,next,9)==15);
-  // Address fields for another track (a mis-stepped head) leave the source untouched.
-  mount_serve(f,dsk,"disk.dsk",0,true);
-  save_track(0,f,next_woz,34,0,[&]{ assert(bytes(f)==dsk); });
   // Host permissions and archives keep a sector image read-only and unmodified.
   can_write=false; mount_serve(f,dsk,"disk.dsk"); save_track(0,f,next_woz,0,0,[&]{ assert(bytes(f)==dsk); });
   assert(serve(0,f)==w); can_write=true; source(f,dsk); f.zip=reinterpret_cast<fileZipArchive*>(1);
   assert(mount(0,"disk.dsk",f,writable) && !writable); f.zip=nullptr;
-  puts("PASS Apple /// sector write-back: DSK/PO/2MG persistence, torn saves, damaged fields and protection");
+  puts("PASS Apple /// sector write-back: DSK/PO/2MG persistence, torn saves and protection");
   // SOS copy protection: the key is rebuilt only for a boot volume whose SOS.INTERP is
   // encrypted. A plain interpreter must never get it, or SOS decodes working code into
   // garbage (SYSTEM FAILURE $06). Fixture: volume directory in block 2, a sapling file
@@ -329,7 +293,7 @@ int main(int argc,char **argv) {
   assert(keyed_woz!=plain_woz && decode_all(keyed_woz,back) && back==sos);
   // The key sectors carry the key bytes; every other address field keeps volume 254.
   { uint8_t vols[16], trk[4096]; const uint8_t key[8]={0xb4,0xc1,0xe4,0xf3,0x9b,0xbd,0xbd,0x7c}, sec[8]={2,14,10,6,2,14,10,6};
-    for(int t=0;t<35;t++) { assert(a3_verify_track(keyed_woz.data(),keyed_woz.size(),t,trk,vols)==0xffff);
+    for(int t=0;t<35;t++) { assert(a3_decode_track(keyed_woz.data(),keyed_woz.size(),t,trk,vols)==0xffff);
       for(int s=0;s<16;s++) assert(vols[s]==(t>=9&&t<=16&&s==sec[t-9]?key[t-9]:254)); } }
   assert(interp!=plain_interp && !memcmp(&interp[14],&plain_interp[14],3));
   sos_crypt(&interp[14],interp.size()-14,0x830e); assert(interp==plain_interp);
