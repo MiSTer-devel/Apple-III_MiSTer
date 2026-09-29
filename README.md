@@ -82,8 +82,11 @@ Put the Washington Apple Pi disks `bos-01a` in **Drive 1** and `bos-01b` in
 `chdman` (`.\chdman` in PowerShell on Windows):
 
 ```sh
-chdman extracthd -i apple3.hd -o bos.hdv
+chdman extracthd -i apple3.hd -o bos.hdv -isb 512 -ib 16776704
 ```
+
+The two options keep only its first partition, /BOS, and skip the block of
+IDE drive data in front of it.
 
 apple3rtr's `bosboot.dsk` won't boot here; it is for a CFFA2 card.
 
