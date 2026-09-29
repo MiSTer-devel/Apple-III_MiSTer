@@ -3,14 +3,20 @@
 This core requires the companion Main on the `apple3-disk-storage` branch of
 [jakesjews/Main_MiSTer](https://github.com/jakesjews/Main_MiSTer/tree/apple3-disk-storage):
 one commit on MiSTer-devel/Main_MiSTer commit
-`5fb9bd102024ac16a92291f291318d5846dcaae2`.
+`5fb9bd102024ac16a92291f291318d5846dcaae2`. The commit also carries
+Newsdee's still-open upstream
+[PR #1330](https://github.com/MiSTer-devel/Main_MiSTer/pull/1330) unchanged
+(the //e and IIgs WOZ CRC refresh and save-state naming), because the Apple
+III hooks sit inside its two `user_io.cpp` blocks. The branch is meant to
+conflict there when that PR lands upstream.
 
 The Apple III code lives in `support/a3/`: `a3_disk.cpp` mounts and
 serves the images, `a3_woz.cpp` builds the synchronized tracks and the SOS
 protection key. `user_io.cpp` reaches it through three hook lines, the way the
-Mac support code is wired. It calls the 2MG, DC42 and sector-order helpers
+Mac support code is wired, and two more inside PR #1330's blocks. It calls the 2MG, DC42 and sector-order helpers
 that the //e and IIgs use in `support/a2/iigs_fmt.cpp`, and changes nothing
-outside `support/a3/` beyond those hook lines and one include. The
+outside `support/a3/` beyond those hook lines and one include, apart from
+PR #1330 itself. The
 hardware retains its own P6 controller and Disk III drive logic.
 
 | Main mount | Apple III assignment | Policy |
@@ -65,8 +71,10 @@ and write policies.
 - NIB is packed directly into a bitstream without a sector decode/re-encode.
   Standard FF sync gaps acquire ten-bit spacing; data/address bytes stay intact.
 - Native WOZ is checked only for its signature, an INFO chunk inside the file
-  and a 5.25" disk type, as the //e and IIgs paths do, and is served from RAM
-  without normalization. All four drives keep separate buffers.
+  and a 5.25" disk type, then served unchanged by Main's generic SD code, as
+  on the //e and IIgs. A WOZ inside a zip is read into RAM instead, because a
+  zip is slow to seek back, and is read-only. Converted images keep a separate
+  buffer per drive.
 - WOZ1, FLUX, archived and write-protected images are read-only. Writable
   WOZ2 persists only existing track allocations. It cannot allocate an unmapped
   track or resize tracks.
@@ -99,8 +107,10 @@ and write policies.
   inter-track rotation is recomputed so SOS's key sectors still pass the head
   56.5 ms apart.
 - Main receives complete transfers of up to 16 KiB and zero-pads partial reads.
-  Native writes reject metadata/out-of-file ranges and clear the CRC to the WOZ
-  specification's zero/not-calculated value. Unknown chunks are preserved.
+- About a second after the core's last write to a native WOZ, Main recomputes
+  the file's CRC, so AppleWin and wozardry don't report a mismatch. The Apple
+  III code does this itself, in the same two `user_io.cpp` places as PR #1330's
+  //e and IIgs refresh, without calling it.
 - A raw PO or HDV hard disk is checked, then served by Main's generic SD code,
   as the //e and IIgs hard disks are. The Apple III code serves only images
   behind a 2MG or DC42 header: their payloads use the declared lengths,
@@ -142,8 +152,8 @@ replacement/ejection, format/slot matching, DOS/PO/2MG equivalence, bit-packed G
 preservation, NIB write-back of whole verified tracks with their volume bytes,
 multi-block transfers, read-only enforcement, block-image writes
 behind a 2MG header with out-of-range writes ignored and protected images
-untouched, and native WOZ writes that survive remount while preserving
-unrelated bytes. The ProDOS-order map is
+untouched, and native WOZ mounts that keep their write protection. The
+ProDOS-order map is
 pinned to block positions rather than to the codec's own inverse, and the
 protection key must appear only for an encrypted `SOS.INTERP`. Sector write-back tests
 save tracks block by block into DSK, PO and 2MG sources and check after every

@@ -24,6 +24,8 @@ char user_io_a2_woz_enabled() { return 1; }
 int user_io_get_width() { return 0; }
 int FileCanWrite(const char *) { return can_write; }
 void diskled_on() {}
+unsigned long GetTimer(unsigned long offset) { return offset + 1; }
+unsigned long CheckTimer(unsigned long) { return 1; }
 int FileClose(fileTYPE *f) { if (f->filp) fclose(f->filp); f->filp = nullptr; return 1; }
 int FileSeek(fileTYPE *f, __off64_t off, int whence) { if (fseeko(f->filp, off, whence)) return 0; f->offset = ftello(f->filp); return 1; }
 int FileReadAdv(fileTYPE *f, void *buf, int len, int) { return fread(buf, 1, len, f->filp); }
@@ -157,7 +159,7 @@ int main(int argc,char **argv) {
     std::ifstream input(argv[2],std::ios::binary);
     std::vector<uint8_t> b((std::istreambuf_iterator<char>(input)),{});
     source(f,b); int writable; assert(mount(0,argv[2],f,writable));
-    auto w=serve(0,f); std::ofstream out(argv[3],std::ios::binary); out.write((char*)w.data(),w.size());
+    auto w=memcmp(b.data(),"WOZ",3) ? serve(0,f) : b; std::ofstream out(argv[3],std::ios::binary); out.write((char*)w.data(),w.size());
     a3_unmount(0); return !out;
   }
   std::vector<uint8_t> dsk(A2_525_IMAGE_SIZE), po(dsk.size()), back(dsk.size());
@@ -334,19 +336,13 @@ int main(int argc,char **argv) {
   assert(interp!=plain_interp && !memcmp(&interp[14],&plain_interp[14],3));
   sos_crypt(&interp[14],interp.size()-14,0x830e); assert(interp==plain_interp);
   puts("PASS SOS protection: key only for an encrypted SOS.INTERP, cipher round-trip, plain volumes untouched");
-  // Native WOZ: unknown chunks, raw bits and all metadata remain byte-for-byte.
+  // Native WOZ on a real file is left to the generic path, as on the //e and IIgs.
   w.insert(w.end(),{'M','E','T','A',3,0,0,0,'x','y','z'}); put32(w.data()+8,woz_crc32(w.data()+12,w.size()-12));
-  source(f,w); assert(mount(1,"native.woz",f,writable) && writable);
-  assert(serve(1,f)==w); from_fpga.assign(w.begin()+1536,w.begin()+2560); from_fpga[345]^=0x20;
-  write(1,f,3,1024); auto expected=w; expected[1536+345]^=0x20; memset(expected.data()+8,0,4);
-  assert(bytes(f)==expected); assert(serve(1,f)==expected); assert(valid_woz(expected));
-  from_fpga.assign(512,0); write(1,f,0); assert(bytes(f)==expected);
-  from_fpga.assign(1024,0); write(1,f,f.size/512,1024); assert(bytes(f)==expected);
-  source(f,expected); assert(mount(1,"native.woz",f,writable) && writable); assert(serve(1,f)==expected);
-  expected[22]=1; source(f,expected); assert(mount(1,"native.woz",f,writable) && !writable);
-  from_fpga.assign(512,0x55); write(1,f,3); assert(bytes(f)==expected); assert(serve(1,f)==expected);
+  auto native=[&](const std::vector<uint8_t> &img, bool rw) { source(f,img); int wr; assert(mount(1,"native.woz",f,wr) && !!wr==rw);
+    assert(f.size==int64_t(img.size()) && a3_sd_service(1,&f,1,0,512,0)==0 && a3_sd_service(1,&f,2,3,512,0)==0 && bytes(f)==img); };
+  native(w,true); auto protected_woz=w; protected_woz[22]=1; native(protected_woz,false);
   auto bad=w; put32(bad.data()+8,0); put32(bad.data()+16,0x7fffffff); source(f,bad); assert(!mount(0,"broken.woz",f,writable));
-  puts("PASS native WOZ: full bursts, CRC, partial EOF, metadata guards, persistence and write protection");
+  puts("PASS native WOZ: generic path, write protection, malformed containers rejected");
   // Four simultaneous Disk III mounts use separate buffers, permissions and
   // write-back state, including when another drive is replaced or ejected.
   fileTYPE drives[4];
@@ -373,8 +369,7 @@ int main(int argc,char **argv) {
   save_track(2,drives[2],encoded,0,0,[]{});
   assert(bytes(drives[2])==originals[2]);
   a3_unmount(1);
-  auto replacement=mount_serve(drives[1],w,"replacement.woz",1,true);
-  assert(replacement==w);
+  source(drives[1],w); assert(mount(1,"replacement.woz",drives[1],writable) && writable && a3_sd_service(1,&drives[1],1,0,512,0)==0);
   assert(serve(2,drives[2])==mounted[2]);
   assert(bytes(drives[3])==new_d4);
   assert(serve(0,drives[0])==mounted[0]);
@@ -433,16 +428,17 @@ int main(int argc,char **argv) {
   source(f,po35); assert(iigs_mount(2,"disk.po",&f,&writable)==IIGS_HANDLED && writable);
   auto gs=iigs_serve(2); assert(a2_woz35_to_po(back35.data(),gs.data(),gs.size()) && back35==po35);
   for(int i=0;i<16;i++) iigs_unmount(i);
-  // Archives and host permissions force native WOZ read-only without changing it.
+  // A read-only host file goes to the generic path read-only; an archive member
+  // is served from RAM, read-only.
   core="Apple-III"; can_write=false; source(f,w);
   assert(mount(0,"native.woz",f,writable) && !writable);
-  assert(serve(0,f)==w); can_write=true; source(f,w); f.zip=reinterpret_cast<fileZipArchive*>(1);
+  assert(a3_sd_service(0,&f,1,0,512,0)==0); can_write=true; source(f,w); f.zip=reinterpret_cast<fileZipArchive*>(1);
   assert(mount(0,"native.woz",f,writable) && !writable);
   assert(serve(0,f)==w); f.zip=nullptr;
   // A supported FLUX container is read-only and is never converted.
   auto flux=w; flux.insert(flux.end(),{'F','L','U','X',160,0,0,0}); flux.resize(flux.size()+160,255);
   flux[20]=3; put32(flux.data()+8,woz_crc32(flux.data()+12,flux.size()-12));
-  source(f,flux); assert(mount(0,"flux.woz",f,writable) && !writable); assert(serve(0,f)==flux);
+  source(f,flux); assert(mount(0,"flux.woz",f,writable) && !writable); assert(a3_sd_service(0,&f,1,0,512,0)==0);
   // A recognizable malformed container must not fall back to a raw block image.
   auto overflow=bm; put32(overflow.data()+12,1); put32(overflow.data()+20,0xffffffff); put32(overflow.data()+28,0);
   source(f,overflow); assert(!mount(4,"bad.2mg",f,writable));
