@@ -23,6 +23,7 @@ char *user_io_get_core_name(int) { return &core[0]; }
 char user_io_a2_woz_enabled() { return 1; }
 int user_io_get_width() { return 0; }
 int FileCanWrite(const char *) { return can_write; }
+void diskled_on() {}
 int FileClose(fileTYPE *f) { if (f->filp) fclose(f->filp); f->filp = nullptr; return 1; }
 int FileSeek(fileTYPE *f, __off64_t off, int whence) { if (fseeko(f->filp, off, whence)) return 0; f->offset = ftello(f->filp); return 1; }
 int FileReadAdv(fileTYPE *f, void *buf, int len, int) { return fread(buf, 1, len, f->filp); }
@@ -33,6 +34,17 @@ void DisableIO() {}
 uint16_t fpga_spi(uint16_t v) { command = v; return 0; }
 void spi_block_write(const uint8_t *p, int, int n) { to_fpga.assign(p, p+n); }
 void spi_block_read(uint8_t *p, int, int n) { assert(from_fpga.size() == unsigned(n)); memcpy(p, from_fpga.data(), n); }
+// SOS.INTERP's cipher as BFM.INIT2 applies it; Main keeps its own copy private.
+static void sos_crypt(uint8_t *code, size_t len, uint16_t load) {
+  const uint8_t sos_key[8]={0xb4,0xc1,0xe4,0xf3,0x9b,0xbd,0xbd,0x7c}; uint8_t key[8], prev=0;
+  for(int i=0;i<8;i++) key[i]=sos_key[7-i];
+  unsigned y=(load+3)&255;
+  for(size_t i=3;i<len;) {
+    unsigned carry=key[0]>>7;
+    for(int x=7;x>=0;x--) { unsigned v=(key[x]<<1)|carry; carry=v>>8; key[x]=v; }
+    do { uint8_t a=key[(y&7)^2]; prev=uint8_t(a+prev+key[a&7]); code[i++]^=prev; y=(y+1)&255; } while(y && i<len);
+  }
+}
 static void put32(uint8_t *p, uint32_t v) { for(int i=0;i<4;i++) p[i]=v>>(i*8); }
 static uint32_t get32(const uint8_t *p) { return p[0] | p[1]<<8 | p[2]<<16 | uint32_t(p[3])<<24; }
 // Whole-file WOZ check for images the code builds or rewrites: signature, CRC when
@@ -79,7 +91,8 @@ static void source(fileTYPE &f, const std::vector<uint8_t> &b) {
   f.size=b.size(); f.zip=nullptr; rewind(f.filp);
 }
 static int ack(int slot) { return 0x100*(slot+1); }
-static bool mount(int slot, const char *name, fileTYPE &f, int &writable) { return a3_mount_hook(slot,name,&f,&writable)==1; }
+// As user_io_file_mount: writable comes in from FileCanWrite(), which is 0 for zipped paths.
+static bool mount(int slot, const char *name, fileTYPE &f, int &writable) { writable=FileCanWrite(name) && !f.zip; return a3_mount_hook(slot,name,&f,&writable)==1; }
 static void write(int slot, fileTYPE &f, uint64_t lba, int sz=512) { assert(a3_sd_service(slot,&f,2,lba,sz,ack(slot))==1); }
 static std::vector<uint8_t> serve(int slot, fileTYPE &f) {
   std::vector<uint8_t> result;
@@ -306,7 +319,7 @@ int main(int argc,char **argv) {
   std::vector<uint8_t> plain_woz(512*1024), keyed_woz(512*1024);
   plain_woz.resize(a3_dsk_to_woz(plain_woz.data(),plain_woz.size(),sos.data(),0,254));
   assert(mount_serve(f,sos,"boot.dsk",0,true)==plain_woz);
-  a3_sos_crypt(&interp[14],interp.size()-14,0x830e);
+  sos_crypt(&interp[14],interp.size()-14,0x830e);
   memcpy(&sos_po[11*512],interp.data(),interp.size()); a2_prodos_to_dos(sos.data(),sos_po.data());
   assert(a3_sos_interp_encrypted(sos.data()));
   keyed_woz.resize(a3_dsk_to_woz(keyed_woz.data(),keyed_woz.size(),sos.data(),1,254));
@@ -318,7 +331,7 @@ int main(int argc,char **argv) {
     for(int t=0;t<35;t++) { assert(a3_verify_track(keyed_woz.data(),keyed_woz.size(),t,trk,vols)==0xffff);
       for(int s=0;s<16;s++) assert(vols[s]==(t>=9&&t<=16&&s==sec[t-9]?key[t-9]:254)); } }
   assert(interp!=plain_interp && !memcmp(&interp[14],&plain_interp[14],3));
-  a3_sos_crypt(&interp[14],interp.size()-14,0x830e); assert(interp==plain_interp);
+  sos_crypt(&interp[14],interp.size()-14,0x830e); assert(interp==plain_interp);
   puts("PASS SOS protection: key only for an encrypted SOS.INTERP, cipher round-trip, plain volumes untouched");
   // Native WOZ: unknown chunks, raw bits and all metadata remain byte-for-byte.
   w.insert(w.end(),{'M','E','T','A',3,0,0,0,'x','y','z'}); put32(w.data()+8,woz_crc32(w.data()+12,w.size()-12));
