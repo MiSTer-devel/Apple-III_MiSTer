@@ -84,9 +84,10 @@ and write policies.
   a track one 512-byte block at a time, so the track is torn until its last
   block arrives. Main decodes it then the way upstream's //e and IIgs decoder
   does, without checksum, track-number or epilog checks; the first copy of a
-  sector wins. Once all sixteen sectors are found, the whole track replaces the
-  file's, in the file's own sector order and behind any 2MG header, in one
-  4 KiB write; a track with a missing sector leaves the file's track as it was.
+  sector wins. Once any sector is found, the whole track replaces the file's,
+  in the file's own sector order and behind any 2MG header, in one 4 KiB write,
+  with missing sectors written as zeros, as upstream's //e and IIgs write-back
+  does.
   The image is opened O_SYNC, and sixteen separate sector writes held the
   drive's cache busy long enough to break SOS's formatter. The reconstructed
   SOS address-field key is not stored, because sector images have no address
