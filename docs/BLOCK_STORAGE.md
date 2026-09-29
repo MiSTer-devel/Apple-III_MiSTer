@@ -187,8 +187,7 @@ Results are in the [results sections](#results-2026-09-18) below.
   longest RDY hold of 7,058 clocks. `sim/run_tests.sh`, `sim/accuracy/run.sh`
   (zero failing groups), `sim/joystick/run.sh` and `sim/serial/run.sh` pass
   with the card installed, as do `make lint` and `make format-check`.
-- Main's sanitizer suite passes with the block-image write tests, and the
-  regenerated patch applies to its upstream base.
+- Main's sanitizer suite passes with the block-image write tests.
 - Stock ROM, SOS 1.3 utilities floppy with Problock3 in place of `.PROFILE`,
   the 16 MiB `sos_selector_hd.po` on drive 1 and drive 2 empty: SOS initialises
   both units (the empty one reports no device) and shows the menu at 36.5 s

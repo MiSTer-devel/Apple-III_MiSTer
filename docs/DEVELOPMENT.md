@@ -356,5 +356,5 @@ original addresses, so their cycle counts match. The harness sets a new joystick
 position before each batch, 256 in all, and checks every result and the
 switches. It needs cc65 and Verilator but no ROM image.
 
-See [Main storage integration](MAIN_STORAGE.md) for the companion Main patch and
+See [Main storage integration](MAIN_STORAGE.md) for the companion Main branch and
 [Disk III validation](DISK_FIDELITY_2026-09-16.md) for the tested hardware build.

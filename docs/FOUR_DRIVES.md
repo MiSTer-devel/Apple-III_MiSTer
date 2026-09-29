@@ -12,15 +12,12 @@ own mount, track cache, file permissions, OSD protection and media-change latch.
 A simultaneous phase-1 acknowledgement and another drive's media change update
 both latches; a new mount takes precedence over acknowledgement on the same drive.
 
-OSD protection keeps the previous drive-1/2 status bits, 6 and 7, and adds bits
-11 and 12 for drives 3 and 4. Keyboard, serial and joystick settings keep their
-existing bits. No MiSTer framework files were changed.
+OSD write protection for drives 1 to 4 is status bits 6, 7, 11 and 12.
 
-Main's future block assignments move from S2/S3 to S4/S5. This requires the
-matching Main binary for four-drive cores; older two-drive WOZ cores still use
-S0/S1. The Main changes are on the `apple3-disk-storage` branch of
-[jakesjews/Main_MiSTer](https://github.com/jakesjews/Main_MiSTer/tree/apple3-disk-storage);
-the tests are in `support/main/tests`.
+Main serves the four floppies on S0–S3 and the hard disks on S4–S7. That needs
+the companion Main on the `apple3-disk-storage` branch of
+[jakesjews/Main_MiSTer](https://github.com/jakesjews/Main_MiSTer/tree/apple3-disk-storage),
+whose tests are in this repository's `support/main/tests`.
 
 SOS boot disks may configure only two drives. In System Utilities, read the
 boot disk's `SOS.DRIVER` in the System Configuration Program, change **Number of
@@ -46,8 +43,6 @@ in [Hardware design](DESIGN.md).
   mounts, independent buffers and permissions, D4 sector write persistence,
   protected D3 writes, D2 replacement and D4 remount. Apple II/IIgs and all
   previous codec/write-back tests also pass.
-- The exported Main patch applies to its documented upstream base and
-  reproduces all 11 changed source and test files byte for byte.
 - Stock-ROM SOS boot with four WOZ images, a warm reset during host I/O and
   71,590-clock host delays reaches the System Utilities menu. All loader
   milestones pass; no read, retry, recalibration, loader or hard errors occur.

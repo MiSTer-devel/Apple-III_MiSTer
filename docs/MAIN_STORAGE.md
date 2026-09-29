@@ -32,10 +32,7 @@ hardware retains its own P6 controller and Disk III drive logic.
 The FPGA exposes **S0 through S7**. S4 and S5 feed the
 [virtual block-storage card](BLOCK_STORAGE.md), in slot 1 as shipped, and S6
 and S7 the [ProFile cards](PROFILE.md); the OSD shows each disk while a slot
-holds its card. Older two-drive
-WOZ cores can use this Main build on S0/S1; four-drive cores require the
-matching Main build so S2/S3 are treated as floppies. The previous Main
-assigned its unused S2/S3 slots to block devices.
+holds its card.
 
 Main recognizes the Apple III by its core name, so every Apple-III build gets
 this path. The //e and IIgs retain their existing, different mount assignments
@@ -160,7 +157,7 @@ pinned to block positions rather than to the codec's own inverse, and the
 protection key must appear only for an encrypted `SOS.INTERP`. Sector write-back tests
 save tracks block by block into DSK, PO and 2MG sources and check after every
 block that each sector holds either its old or its new contents. The tests live here rather than in the Main
-branch or the patch: upstream Main has no test tree.
+branch: upstream Main has no test tree.
 
 After that build, use the same backend to save an explicit WOZ2 copy of a sector
 image or a NIB (a native WOZ is served unchanged, so a WOZ1 stays WOZ1):
