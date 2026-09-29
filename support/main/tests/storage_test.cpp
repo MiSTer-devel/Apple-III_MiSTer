@@ -111,7 +111,7 @@ static std::vector<uint8_t> mount_serve(fileTYPE &f, const std::vector<uint8_t> 
 // Every track of an Apple III WOZ decodes completely into a DOS-order image.
 static bool decode_all(const std::vector<uint8_t> &woz, std::vector<uint8_t> &dsk) {
   uint8_t vols[16];
-  for(int t=0;t<35;t++) if(a3_decode_track(woz.data(),woz.size(),t,dsk.data()+t*4096,vols)!=0xffff) return false;
+  for(int t=0;t<35;t++) if(a3_decode_track(woz.data(),woz.size(),t,dsk.data()+t*4096,vols)!=16) return false;
   return true;
 }
 // The drive saves track `from` of woz over track `to` as consecutive 512-byte blocks,
@@ -189,7 +189,7 @@ int main(int argc,char **argv) {
     auto all=[&](const std::vector<uint8_t> &woz,uint8_t want) {
       uint8_t got[16], sectors[4096];
       for(int t:{0,9,17,34}) {
-        assert(a3_decode_track(woz.data(),woz.size(),t,sectors,got)==0xffff);
+        assert(a3_decode_track(woz.data(),woz.size(),t,sectors,got)==16);
         for(int s=0;s<16;s++) assert(got[s]==want);
       }
     };
@@ -234,7 +234,7 @@ int main(int argc,char **argv) {
     auto saved=bytes(f); auto again=mount_serve(f,saved,"keyed.nib",0,true); assert(again==next_woz);
     assert(decode_all(again,back) && back==next_dsk);
     uint8_t got_volumes[16], track9[4096];
-    assert(a3_decode_track(again.data(),again.size(),9,track9,got_volumes)==0xffff && !memcmp(got_volumes,volumes,16));
+    assert(a3_decode_track(again.data(),again.size(),9,track9,got_volumes)==16 && !memcmp(got_volumes,volumes,16));
     // A NIB payload inside a 2MG is stored behind its header.
     std::vector<uint8_t> mgn(64+keyed.size()); twomg_build(mgn.data(),mgn.size(),keyed.data(),keyed.size(),2);
     mount_serve(f,mgn,"keyed.2mg",0,true); save_nib_track(next_woz,9,keyed,64);
@@ -293,7 +293,7 @@ int main(int argc,char **argv) {
   assert(keyed_woz!=plain_woz && decode_all(keyed_woz,back) && back==sos);
   // The key sectors carry the key bytes; every other address field keeps volume 254.
   { uint8_t vols[16], trk[4096]; const uint8_t key[8]={0xb4,0xc1,0xe4,0xf3,0x9b,0xbd,0xbd,0x7c}, sec[8]={2,14,10,6,2,14,10,6};
-    for(int t=0;t<35;t++) { assert(a3_decode_track(keyed_woz.data(),keyed_woz.size(),t,trk,vols)==0xffff);
+    for(int t=0;t<35;t++) { assert(a3_decode_track(keyed_woz.data(),keyed_woz.size(),t,trk,vols)==16);
       for(int s=0;s<16;s++) assert(vols[s]==(t>=9&&t<=16&&s==sec[t-9]?key[t-9]:254)); } }
   assert(interp!=plain_interp && !memcmp(&interp[14],&plain_interp[14],3));
   sos_crypt(&interp[14],interp.size()-14,0x830e); assert(interp==plain_interp);

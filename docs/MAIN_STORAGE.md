@@ -13,8 +13,9 @@ conflict there when that PR lands upstream.
 The Apple III code lives in `support/a3/`: `a3_disk.cpp` mounts and
 serves the images, `a3_woz.cpp` builds the synchronized tracks and the SOS
 protection key. `user_io.cpp` reaches it through three hook lines, the way the
-Mac support code is wired, and two more inside PR #1330's blocks. It calls the 2MG, DC42 and sector-order helpers
-that the //e and IIgs use in `support/a2/iigs_fmt.cpp`, and changes nothing
+Mac support code is wired, and two more inside PR #1330's blocks. It calls the
+2MG, DC42, sector-order, WOZ-type and NIB-track helpers that the //e and IIgs use
+in `support/a2/iigs_fmt.cpp`, and changes nothing
 outside `support/a3/` beyond those hook lines and one include, apart from
 PR #1330 itself. The
 hardware retains its own P6 controller and Disk III drive logic.
@@ -82,9 +83,9 @@ and write policies.
   track or resize tracks.
 - DSK, DO, PO and sector-order 2MG images are written in place. The drive saves
   a track one 512-byte block at a time, so the track is torn until its last
-  block arrives. Main decodes it then the way upstream's //e and IIgs decoder
-  does, without checksum, track-number or epilog checks; the first copy of a
-  sector wins. Once any sector is found, the whole track replaces the file's,
+  block arrives. Main then frames the track's bits into nibbles and decodes them
+  with upstream's //e and IIgs decoder, `a2_nib_track_to_dsk`: no checksum or
+  track-number checks, and the first copy of a sector wins. Once any sector is found, the whole track replaces the file's,
   in the file's own sector order and behind any 2MG header, in one 4 KiB write,
   with missing sectors written as zeros, as upstream's //e and IIgs write-back
   does.
