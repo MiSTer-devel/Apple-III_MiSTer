@@ -2,8 +2,8 @@
 
 This core requires the companion Main on the `apple3-disk-storage` branch of
 [jakesjews/Main_MiSTer](https://github.com/jakesjews/Main_MiSTer/tree/apple3-disk-storage):
-a short series of commits on MiSTer-devel/Main_MiSTer commit
-`5fb9bd102024ac16a92291f291318d5846dcaae2`. The first commit also carries
+one commit on MiSTer-devel/Main_MiSTer commit
+`5fb9bd102024ac16a92291f291318d5846dcaae2`. The commit also carries
 Newsdee's still-open upstream
 [PR #1330](https://github.com/MiSTer-devel/Main_MiSTer/pull/1330) unchanged
 (the //e and IIgs WOZ CRC refresh and save-state naming), because the Apple
