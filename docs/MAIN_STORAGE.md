@@ -2,19 +2,14 @@
 
 This core requires the companion Main on the `apple3-disk-storage` branch of
 [jakesjews/Main_MiSTer](https://github.com/jakesjews/Main_MiSTer/tree/apple3-disk-storage).
-The branch also includes Newsdee's upstream
-[PR #1330](https://github.com/MiSTer-devel/Main_MiSTer/pull/1330) (the //e and
-IIgs WOZ CRC refresh and save-state naming), which hasn't landed upstream yet.
 
 The Apple III code lives in `support/a3/`: `a3_disk.cpp` mounts and
 serves the images, `a3_woz.cpp` builds the synchronized tracks and the SOS
 protection key. `user_io.cpp` reaches it through three hook lines, the way the
-Mac support code is wired, and two more inside PR #1330's blocks. It calls the
-2MG, DC42, sector-order, WOZ-type and NIB-track helpers that the //e and IIgs use
-in `support/a2/iigs_fmt.cpp`, and changes nothing
-outside `support/a3/` beyond those hook lines and one include, apart from
-PR #1330 itself. The
-hardware retains its own P6 controller and Disk III drive logic.
+Mac support code is wired. It calls the 2MG, DC42, sector-order, WOZ-type and
+NIB-track helpers that the //e and IIgs use in `support/a2/iigs_fmt.cpp`, and
+changes nothing outside `support/a3/` beyond those hook lines and one include.
+The hardware retains its own P6 controller and Disk III drive logic.
 
 | Main mount | Apple III assignment | Policy |
 |---|---|---|
@@ -107,10 +102,11 @@ and write policies.
   inter-track rotation is recomputed so SOS's key sectors still pass the head
   56.5 ms apart.
 - Main receives complete transfers of up to 16 KiB and zero-pads partial reads.
-- About a second after the core's last write to a native WOZ, Main recomputes
-  the file's CRC, so AppleWin and wozardry don't report a mismatch. The Apple
-  III code does this itself, in the same two `user_io.cpp` places as PR #1330's
-  //e and IIgs refresh, without calling it.
+- Writes to a native WOZ go through the generic SD path and leave the file's
+  stored CRC stale, as on the //e and IIgs, so AppleWin and wozardry report a
+  CRC mismatch afterwards. Upstream
+  [PR #1330](https://github.com/MiSTer-devel/Main_MiSTer/pull/1330) adds a CRC
+  refresh for the //e and IIgs; the Apple III will follow once it lands.
 - A raw PO or HDV hard disk is checked, then served by Main's generic SD code,
   as the //e and IIgs hard disks are. The Apple III code serves only images
   behind a 2MG or DC42 header: their payloads use the declared lengths,

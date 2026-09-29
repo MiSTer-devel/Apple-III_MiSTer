@@ -253,15 +253,15 @@ internal and external motors running while the phase/read/write bus selects one.
 Apple II emulation restores the conventional mutually exclusive drive enables.
 [Disk analog schematic 050-0031-C; SOS DISK3 UNITSEL, SPINNING and SELECT]
 
-Main's shared Apple-family backend detects containers and sector order, validates
-WOZ CRC/chunk/track bounds, and converts sector/NIB images into in-memory WOZ.
+Main's shared Apple-family backend detects containers and sector order, checks a
+WOZ's disk type, and converts sector/NIB images into in-memory WOZ.
 A converted sector image gets the SOS protection key in its track 9 to 16
 address fields only when its `SOS.INTERP` is encrypted; SOS's BFM.INIT2 would
 otherwise decrypt a plain interpreter and die with SYSTEM FAILURE $06.
 The FPGA reads the WOZ track directory into its cache using the existing MiSTer
 block protocol. It contains no sector-to-GCR converter. A native WOZ on a real
-file goes through Main's generic SD path, and Main recomputes its CRC after
-writes. Writes to a converted DSK, DO, PO or 2MG are decoded from the saved
+file goes through Main's generic SD path; its stored CRC goes stale after
+writes until upstream PR #1330's refresh can be used. Writes to a converted DSK, DO, PO or 2MG are decoded from the saved
 track by Main once the track's last block arrives, and the whole track is
 stored back into the source file once any sector is found, missing sectors as
 zeros. A NIB source is stored a whole track at a

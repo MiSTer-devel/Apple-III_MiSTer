@@ -23,8 +23,6 @@ char user_io_a2_woz_enabled() { return 1; }
 int user_io_get_width() { return 0; }
 int FileCanWrite(const char *) { return can_write; }
 void diskled_on() {}
-unsigned long GetTimer(unsigned long offset) { return offset + 1; }
-unsigned long CheckTimer(unsigned long) { return 1; }
 int FileClose(fileTYPE *f) { if (f->filp) fclose(f->filp); f->filp = nullptr; return 1; }
 int FileSeek(fileTYPE *f, __off64_t off, int whence) { if (fseeko(f->filp, off, whence)) return 0; f->offset = ftello(f->filp); return 1; }
 int FileReadAdv(fileTYPE *f, void *buf, int len, int) { return fread(buf, 1, len, f->filp); }
