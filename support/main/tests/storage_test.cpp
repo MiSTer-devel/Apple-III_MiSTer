@@ -109,7 +109,8 @@ static std::vector<uint8_t> mount_serve(fileTYPE &f, const std::vector<uint8_t> 
 }
 // Every track of an Apple III WOZ decodes completely into a DOS-order image.
 static bool decode_all(const std::vector<uint8_t> &woz, std::vector<uint8_t> &dsk) {
-  for(int t=0;t<35;t++) if(a3_verify_track(woz.data(),woz.size(),t,dsk.data()+t*4096,nullptr)!=0xffff) return false;
+  uint8_t vols[16];
+  for(int t=0;t<35;t++) if(a3_verify_track(woz.data(),woz.size(),t,dsk.data()+t*4096,vols)!=0xffff) return false;
   return true;
 }
 // The nibbles of track t over two revolutions, each with the bit index of its last bit.
