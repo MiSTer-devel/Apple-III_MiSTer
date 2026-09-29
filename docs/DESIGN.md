@@ -262,8 +262,8 @@ The FPGA reads the WOZ track directory into its cache using the existing MiSTer
 block protocol. It contains no sector-to-GCR converter. A native WOZ on a real
 file goes through Main's generic SD path, and Main recomputes its CRC after
 writes. Writes to a converted DSK, DO, PO or 2MG are decoded from the saved
-track by Main once the track's last block arrives, and the sectors found are
-stored back into the source file. A NIB source is stored a whole track at a
+track by Main once the track's last block arrives, and the whole track is
+stored back into the source file when all sixteen sectors are found. A NIB source is stored a whole track at a
 time, only when all sixteen sectors are found, keeping its
 address-field volume bytes; block images are written in place. The drive
 refuses writes to a FLUX WOZ, a WOZ marked write-protected and unmapped tracks.
