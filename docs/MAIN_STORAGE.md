@@ -64,7 +64,11 @@ and write policies.
   $06 whenever its synchronization check passes, which on hardware was most
   boots.
 - NIB is packed directly into a bitstream without a sector decode/re-encode.
-  Standard FF sync gaps acquire ten-bit spacing; data/address bytes stay intact.
+  Standard FF sync gaps acquire ten-bit spacing, and the longest gaps are then
+  shortened, never below 5 bytes, until the track is 51,424 cells like a
+  converted DSK track (see below). A NIB pads every track to 6,656 bytes, which
+  came to about 54,944 cells, and SOS's formatter stopped with error #33, "drive
+  is too slow". Data and address bytes stay intact.
 - Native WOZ is checked only for its signature, an INFO chunk inside the file
   and a 5.25" disk type, then served unchanged by Main's generic SD code, as
   on the //e and IIgs. A WOZ inside a zip is read into RAM instead, because a
