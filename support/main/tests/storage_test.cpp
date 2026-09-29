@@ -392,22 +392,23 @@ int main(int argc,char **argv) {
   // Out-of-range and oversized writes are acknowledged and ignored.
   write(4,f,4); from_fpga.assign(1024,0x11); write(4,f,3,1024);
   { auto after=bytes(f); auto want=before; std::fill(want.begin()+128+512,want.begin()+128+1024,0xa5); assert(after==want); }
-  from_fpga.assign(512,0x5a); assert(mount_serve(f,block,"block.hdv",5,true)==block);
-  write(5,f,3); { auto want=block; std::fill(want.begin()+1536,want.end(),0x5a); assert(bytes(f)==want); assert(serve(5,f)==want); }
-  // A write-protected 2MG, a DC42 container, a read-only host file and an
-  // archive member stay read-only, and their writes change nothing.
+  // A raw PO/HDV has no header, so, as on the //e and IIgs, the generic path serves it.
+  auto raw=[&](int slot, const char *name, bool rw) { source(f,block); int wr; assert(mount(slot,name,f,wr) && !!wr==rw && f.size==2048);
+    assert(a3_sd_service(slot,&f,1,0,512,0)==0 && a3_sd_service(slot,&f,2,0,512,0)==0); };
+  raw(5,"block.hdv",true); from_fpga.assign(512,0x5a);
+  // A write-protected 2MG and a DC42 container stay read-only, and their writes
+  // change nothing; a read-only host file or an archive member mounts read-only.
   auto wp=bm; put32(wp.data()+16,get32(bm.data()+16)|0x80000000u);
   assert(mount_serve(f,wp,"protected.2mg",4)==block); before=bytes(f); write(4,f,0); assert(bytes(f)==before);
   std::vector<uint8_t> dc(84+block.size()); dc42_build(dc.data(),dc.size(),block.data(),block.size(),0x24,"HD");
   assert(mount_serve(f,dc,"block.image",4)==block); before=bytes(f); write(4,f,0); assert(bytes(f)==before);
-  can_write=false; assert(mount_serve(f,block,"readonly.hdv",5)==block); before=bytes(f); write(5,f,0); assert(bytes(f)==before);
-  can_write=true; source(f,block); f.zip=reinterpret_cast<fileZipArchive*>(1);
+  can_write=false; raw(5,"readonly.hdv",false); can_write=true; source(f,block); f.zip=reinterpret_cast<fileZipArchive*>(1);
   assert(mount(5,"zipped.po",f,writable) && !writable); f.zip=nullptr;
   // Slots 6 and 7, the ProFile cards' disks, are served as 4 and 5 are.
   assert(mount_serve(f,bm,"profile.2mg",6,true)==block);
   from_fpga.assign(512,0x3c); before=bytes(f); write(6,f,2);
   { auto want=before; std::fill(want.begin()+128+1024,want.begin()+128+1536,0x3c); assert(bytes(f)==want); }
-  assert(mount_serve(f,block,"profile.po",7,true)==block);
+  raw(7,"profile.po",true);
   source(f,w); assert(!mount(4,"floppy.woz",f,writable));
   source(f,block); assert(!mount(0,"hard.hdv",f,writable));
   source(f,dsk); assert(!mount(4,"disk.dsk",f,writable));

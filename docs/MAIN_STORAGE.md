@@ -101,10 +101,12 @@ and write policies.
 - Main receives complete transfers of up to 16 KiB and zero-pads partial reads.
   Native writes reject metadata/out-of-file ranges and clear the CRC to the WOZ
   specification's zero/not-calculated value. Unknown chunks are preserved.
-- Block payloads use their declared lengths, excluding 2MG comments or DC42 tags.
-  The block card's 512-byte writes go in place behind any 2MG header; a
-  write to a read-only image is acknowledged and dropped. Main never silently
-  moves an image to another mount slot.
+- A raw PO or HDV hard disk is checked, then served by Main's generic SD code,
+  as the //e and IIgs hard disks are. The Apple III code serves only images
+  behind a 2MG or DC42 header: their payloads use the declared lengths,
+  excluding 2MG comments or DC42 tags, and the cards' 512-byte writes go in
+  place behind the header; a write to a read-only one is acknowledged and
+  dropped. Main never silently moves an image to another mount slot.
 
 ## Build and install
 
