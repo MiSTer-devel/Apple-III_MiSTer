@@ -1,14 +1,10 @@
 # Companion Main storage integration
 
 This core requires the companion Main on the `apple3-disk-storage` branch of
-[jakesjews/Main_MiSTer](https://github.com/jakesjews/Main_MiSTer/tree/apple3-disk-storage):
-one commit on MiSTer-devel/Main_MiSTer commit
-`5fb9bd102024ac16a92291f291318d5846dcaae2`. The commit also carries
-Newsdee's still-open upstream
-[PR #1330](https://github.com/MiSTer-devel/Main_MiSTer/pull/1330) unchanged
-(the //e and IIgs WOZ CRC refresh and save-state naming), because the Apple
-III hooks sit inside its two `user_io.cpp` blocks. The branch is meant to
-conflict there when that PR lands upstream.
+[jakesjews/Main_MiSTer](https://github.com/jakesjews/Main_MiSTer/tree/apple3-disk-storage).
+The branch also includes Newsdee's upstream
+[PR #1330](https://github.com/MiSTer-devel/Main_MiSTer/pull/1330) (the //e and
+IIgs WOZ CRC refresh and save-state naming), which hasn't landed upstream yet.
 
 The Apple III code lives in `support/a3/`: `a3_disk.cpp` mounts and
 serves the images, `a3_woz.cpp` builds the synchronized tracks and the SOS
