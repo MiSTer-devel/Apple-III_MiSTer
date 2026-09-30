@@ -106,8 +106,8 @@ that boot-only testing did not detect.
   and [device list](timing/2026-09-18-mister-devices.png). Card RDY is exercised
   by simulated cards; the MiSTer build has empty expansion slots.
 - After the hardware test, MiSTer returns to MENU, its INI is restored
-  byte-for-byte, and hashes confirm the original disks, installed release RBF
-  and Main binary are unchanged. Temporary core/disk/screenshot files are
+  byte-for-byte, and hashes confirm the original disks and installed release
+  RBF are unchanged. Temporary core/disk/screenshot files are
   removed and the test's Zaparoo service is stopped.
 
 Built RBF: `output_files/Apple-III.rbf` (3,988,968 bytes), SHA-256
@@ -116,8 +116,7 @@ Built RBF: `output_files/Apple-III.rbf` (3,988,968 bytes), SHA-256
 ## Confidence Program 1.1 on 2026-09-18
 
 The same RBF is packaged as `releases/Apple-III_20260918.rbf` and installed on
-MiSTer, paired with Main SHA-256
-`ac0688117c185bc5d7d67cc5c6cddd781997ac8f12f1f75c987329a8ffd696f2`.
+MiSTer.
 Physical testing used copies of the user's Confidence Program and blank disk.
 Confidence's **Make Ext. Drive Test Diskette** command prepared the external
 test media; three separate image copies were mounted on .D2, .D3 and .D4.
@@ -133,7 +132,7 @@ test media; three separate image copies were mounted on .D2, .D3 and .D4.
 - Cleanup returned MiSTer to MENU, restored its original INI byte-for-byte,
   stopped the test's Zaparoo service and removed the scratch disks and remote
   screenshots. The original Confidence and blank images remained unchanged;
-  the installed core and Main retained the hashes above.
+  the installed core retained its hash.
 
 [RAM test, pass 3](timing/2026-09-18-confidence-memory.png) ·
 [All four disk drives](timing/2026-09-18-confidence-four-drives.png)

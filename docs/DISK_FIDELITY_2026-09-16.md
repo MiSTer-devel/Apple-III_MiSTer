@@ -81,8 +81,7 @@ source DSK remained byte-identical. After reloading the core and both images,
 
 The hardware run above booted intermittently: seven of its screenshots show
 **SYSTEM FAILURE = $06**, and the next evening 9 of 11 boots of the same
-System Utilities DSK failed the same way, with either Main build and with one
-drive or two. The simulation had never shown it because the boot test stopped
+System Utilities DSK failed the same way, with one drive or two. The simulation had never shown it because the boot test stopped
 when SOS entered the interpreter.
 
 Running the simulation on to the menu reproduced the failure on every boot.

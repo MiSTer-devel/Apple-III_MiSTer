@@ -201,7 +201,7 @@ Results are in the [results sections](#results-2026-09-18) below.
   172 transfers.
 - Quartus 17.0.2: 0 errors, 42 warnings; worst setup slack 0.772 ns, hold
   0.206 ns; 19,735 ALMs (47%) and 489 M10K blocks (88%).
-- MiSTer with the paired Main: the same utilities floppy boots with the image
+- MiSTer: the same utilities floppy boots with the image
   on **Mount Hard Disk 1** (now **Block Disk 1**) and [lists `/SOS`](blockdev/2026-09-18-utilities-list-profile.png);
   [creating `/SOS/HWTEST`](blockdev/2026-09-18-utilities-mkdir.png) changed
   blocks 2, 4, 8 and 10846 of the image on the SD card, the same four blocks as

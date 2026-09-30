@@ -55,15 +55,13 @@ in [Hardware design](DESIGN.md).
   disposable disk copies, SOS saves a four-drive configuration and formats
   .D3 as `FOUR3` and .D4 as `FOUR4`. Host checks confirm valid 280-block volume
   headers. After each format, only the selected image's SHA-256 changes;
-  the other three images are byte-for-byte unchanged. After a full core/Main
-  reload, SOS reads both persisted volumes again.
+  the other three images are byte-for-byte unchanged. After a full core reload,
+  SOS reads both persisted volumes again.
 
 ![SOS lists all four drives after a cold reload](disk/four-drive-volumes.png)
 
 The tested RBF SHA-256 is
 `8e89ed823b8e3e51709e156202086a40e5c128bd98a20db3f8b2cbb1d895e3b5`.
-The paired Main SHA-256 is
-`ac0688117c185bc5d7d67cc5c6cddd781997ac8f12f1f75c987329a8ffd696f2`.
 
 ## Revalidation with the block card installed — 2026-09-18
 
@@ -87,6 +85,5 @@ six images share Main's transfer bus: four floppies and two hard disks.
 - Confidence Program 1.1 with the hard disk also mounted: **Make Ext. Drive
   Test Diskette** prepared a test disk, copies went into .D2 to .D4, and
   **Seek/Read/Write/Align** passes every row on all four drives.
-- After the upstream Main merge a NIB image in .D2 takes a full volume copy:
-  all 35 tracks are stored and the decoded NIB matches the source volume
-  except the renamed header sector.
+- A NIB image in .D2 takes a full volume copy: all 35 tracks are stored and
+  the decoded NIB matches the source volume except the renamed header sector.

@@ -207,7 +207,7 @@ Apple's `.PROFILE` driver at slot 4 and the card there.
 - Quartus 17.0.2: 0 errors; worst setup slack 0.302 ns (the HDMI PLL, as
   before), 5.5 ns on the machine clock; 21,639 ALMs (52%) and 503 M10K
   blocks (91%).
-- MiSTer with the paired Main and the card in slot 4 (the build before the
+- MiSTer with the card in slot 4 (the build before the
   **Slot** options had its own ProFile image and option): the same floppy and
   image. **List files** of `.profile` prints
   `/PROFILE` with both files and `9717 blocks available`; **Make a new
