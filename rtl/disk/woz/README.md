@@ -43,8 +43,8 @@ Local changes:
 - Track writeback emits only track blocks. Main owns file writes, metadata
   protection and CRC invalidation; no header-write buffer is needed in the FPGA.
 
-The interface remains ordinary MiSTer block I/O. The companion Main extends
-its existing Apple-family storage backend for Apple III; see
+The interface remains ordinary MiSTer block I/O. Main extends its existing
+Apple-family storage backend for Apple III; see
 [the integration notes](../../../docs/MAIN_STORAGE.md). All floppy formats use
 this single WOZ cache and the Apple III P6 sequencer.
 

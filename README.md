@@ -42,25 +42,14 @@ has native Apple /// games as ready-to-mount disk images.
 
 ## Setup
 
-1. Copy the core's latest `.rbf` file in `releases/` to `/media/fat/_Computer/`.
-2. Copy `releases/MiSTer_AppleIII` to `/media/fat/MiSTer_AppleIII`.
-3. Add this to `MiSTer.ini`:
-
-   ```ini
-   [Apple-III]
-   main=MiSTer_AppleIII
-   ```
-
-4. Put disk images in `/media/fat/games/Apple-III/`, launch the core, and pick
+1. Update MiSTer, so its Main has the Apple III disk support.
+2. Copy the core's latest `.rbf` file in `releases/` to `/media/fat/_Computer/`.
+3. Put disk images in `/media/fat/games/Apple-III/`, launch the core, and pick
    a boot disk with **Mount Drive 1**. **Mount Drive 2–4** are the external
    drives. The hard-disk cards' disks show in the OSD while a slot holds the
    card.
-5. If SOS lists only two drives, raise its drive count to four with the System
+4. If SOS lists only two drives, raise its drive count to four with the System
    Configuration Program ([how](docs/FOUR_DRIVES.md)).
-
-Use matching core and Main builds; the custom Main runs only for this core. It
-comes from
-[jakesjews/Main_MiSTer](https://github.com/jakesjews/Main_MiSTer/tree/apple3-disk-storage).
 
 ## Disk images
 
@@ -165,10 +154,10 @@ This core stands on work from the MiSTer and Apple /// communities:
   the Apple II MiSTer core the disk integration follows.
 - **alanswx** for the WOZ drive and media implementation from Apple-II_MiSTer
   (see its [provenance and license](rtl/disk/woz/README.md)), and for the
-  Apple-family disk codec and DSK support in Main that the companion Main
+  Apple-family disk codec and DSK support in Main that the Apple III support
   extends.
 - **Newsdee** for Main's Apple II WOZ support and floppy fixes, which the
-  companion Main builds on.
+  Apple III support builds on.
 - **Stephen A. Edwards** for the Disk II drive model from his Apple II FPGA and
   for his article on the Apple II clock generator.
 - **gyurco** for the 6551 UART core, Disk II write support, his T65 fixes and

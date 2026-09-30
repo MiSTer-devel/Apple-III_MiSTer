@@ -14,10 +14,9 @@ both latches; a new mount takes precedence over acknowledgement on the same driv
 
 OSD write protection for drives 1 to 4 is status bits 6, 7, 11 and 12.
 
-Main serves the four floppies on S0–S3 and the hard disks on S4–S7. That needs
-the companion Main on the `apple3-disk-storage` branch of
-[jakesjews/Main_MiSTer](https://github.com/jakesjews/Main_MiSTer/tree/apple3-disk-storage),
-whose tests are in this repository's `support/main/tests`.
+Main serves the four floppies on S0–S3 and the hard disks on S4–S7
+([Main storage](MAIN_STORAGE.md)); the tests for its Apple III code are in this
+repository's `support/main/tests`.
 
 SOS boot disks may configure only two drives. In System Utilities, read the
 boot disk's `SOS.DRIVER` in the System Configuration Program, change **Number of

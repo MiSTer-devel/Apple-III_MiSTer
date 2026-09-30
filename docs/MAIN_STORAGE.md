@@ -1,15 +1,14 @@
-# Companion Main storage integration
+# Main storage integration
 
-This core requires the companion Main on the `apple3-disk-storage` branch of
-[jakesjews/Main_MiSTer](https://github.com/jakesjews/Main_MiSTer/tree/apple3-disk-storage).
-
-The Apple III code lives in `support/a3/`: `a3_disk.cpp` mounts and
-serves the images, `a3_woz.cpp` builds the synchronized tracks and the SOS
-protection key. `user_io.cpp` reaches it through three hook lines, the way the
-Mac support code is wired. It calls the 2MG, DC42, sector-order, WOZ-type and
-NIB-track helpers that the //e and IIgs use in `support/a2/iigs_fmt.cpp`, and
-changes nothing outside `support/a3/` beyond those hook lines and one include.
-The hardware retains its own P6 controller and Disk III drive logic.
+Main's Apple III code lives in
+[`support/a3/`](https://github.com/MiSTer-devel/Main_MiSTer/tree/master/support/a3):
+`a3_disk.cpp` mounts and serves the images, `a3_woz.cpp` builds the
+synchronized tracks and the SOS protection key. `user_io.cpp` reaches it
+through three hook lines, the way the Mac support code is wired. It calls the
+2MG, DC42, sector-order, WOZ-type and NIB-track helpers that the //e and IIgs
+use in `support/a2/iigs_fmt.cpp`, and changes nothing outside `support/a3/`
+beyond those hook lines and one include. The hardware retains its own P6
+controller and Disk III drive logic.
 
 | Main mount | Apple III assignment | Policy |
 |---|---|---|
@@ -104,9 +103,7 @@ and write policies.
 - Main receives complete transfers of up to 16 KiB and zero-pads partial reads.
 - Writes to a native WOZ go through the generic SD path and leave the file's
   stored CRC stale, as on the //e and IIgs, so AppleWin and wozardry report a
-  CRC mismatch afterwards. Upstream
-  [PR #1330](https://github.com/MiSTer-devel/Main_MiSTer/pull/1330) adds a CRC
-  refresh for the //e and IIgs; the Apple III will follow once it lands.
+  CRC mismatch afterwards.
 - A raw PO or HDV hard disk is checked, then served by Main's generic SD code,
   as the //e and IIgs hard disks are. The Apple III code serves only images
   behind a 2MG or DC42 header: their payloads use the declared lengths,
@@ -114,35 +111,22 @@ and write policies.
   place behind the header; a write to a read-only one is acknowledged and
   dropped. Main never silently moves an image to another mount slot.
 
-## Build and install
+## MGL files
 
-From the Apple III repository root, clone the companion Main next to it:
-
-```sh
-git clone -b apple3-disk-storage https://github.com/jakesjews/Main_MiSTer.git ../Main_MiSTer-AppleIII
-```
-
-In that checkout, use Main's normal ARM Linux cross toolchain and run
-`make -j6 MAKEFLAGS=-j6`. For the FPGA, follow the
-[core build instructions](DEVELOPMENT.md#building).
-Copy `bin/MiSTer` to `/media/fat/MiSTer_AppleIII`. In `MiSTer.ini`:
-
-```ini
-[Apple-III]
-main=MiSTer_AppleIII
-```
-
-MiSTer selects that binary only for Apple III and returns to the normal Main
-when loading Menu or another core. Keep the paired Main and RBF together.
 For an MGL, mount files with `type="s"`, indexes 0 through 3. The validation MGL
 uses eight-second mount delays and a three-second reset delay (units are seconds).
 
 ## Tests and conversion utility
 
-From this repository, run `support/main/tests/run.sh`; set `MAIN_DIR` if the
-Main checkout is not `../Main_MiSTer-AppleIII`. It builds Main's
-`support/a3` and `support/a2` sources with file/SPI shims under address
-and undefined-behavior sanitizers.
+From the Apple III repository root, clone Main next to it:
+
+```sh
+git clone https://github.com/MiSTer-devel/Main_MiSTer.git ../Main_MiSTer
+```
+
+Then run `support/main/tests/run.sh`; set `MAIN_DIR` if the Main checkout is
+somewhere else. It builds Main's `support/a3` and `support/a2` sources with
+file/SPI shims under address and undefined-behavior sanitizers.
 Tests cover four simultaneous mounts, independent write protection, writes and
 replacement/ejection, format/slot matching, DOS/PO/2MG equivalence, bit-packed GCR, NIB
 preservation, NIB write-back of whole tracks with their volume bytes,
@@ -152,8 +136,8 @@ ProDOS-order map is
 pinned to block positions rather than to the codec's own inverse, and the
 protection key must appear only for an encrypted `SOS.INTERP`. Sector write-back tests
 save tracks block by block into DSK, PO and 2MG sources and check after every
-block that each sector holds either its old or its new contents. The tests live here rather than in the Main
-branch: upstream Main has no test tree.
+block that each sector holds either its old or its new contents. The tests
+live here because Main has no test tree.
 
 After that build, use the same backend to save an explicit WOZ2 copy of a sector
 image or a NIB (a native WOZ is served unchanged, so a WOZ1 stays WOZ1):

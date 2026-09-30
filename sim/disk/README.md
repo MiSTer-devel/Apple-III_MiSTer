@@ -37,7 +37,7 @@ The WOZ boot harness uses the same native parser, track RAM and drive used in
 the MiSTer build, with shared, drive-specific transfers of up to 16 KiB. Success requires the
 SOS interpreter milestone, not just reading the boot sector.
 
-Sector images for these tests must be converted with the companion Main's
+Sector images for these tests must be converted with Main's
 `storage_test --convert` utility, which `support/main/tests/run.sh` builds. No
 duplicate image converter is built into this simulator or the FPGA. See
 `docs/MAIN_STORAGE.md`.

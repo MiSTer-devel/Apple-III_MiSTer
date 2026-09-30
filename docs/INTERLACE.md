@@ -136,9 +136,9 @@ model selected.
 
   ![Dealer diagnostics interlace test](video/2026-09-19-interlace-dealer-test.png)
 
-  The disk is a DOS 3.3 volume 1 and needs the companion Main that takes a
-  sector image's volume from its [VTOC](MAIN_STORAGE.md); before that it
-  stopped at VOLUME MISMATCH.
+  The disk is a DOS 3.3 volume 1 and needs a Main that takes a sector
+  image's volume from its [VTOC](MAIN_STORAGE.md); before that it stopped at
+  VOLUME MISMATCH.
 
 ## Tests
 

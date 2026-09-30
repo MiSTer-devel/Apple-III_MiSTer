@@ -261,14 +261,14 @@ otherwise decrypt a plain interpreter and die with SYSTEM FAILURE $06.
 The FPGA reads the WOZ track directory into its cache using the existing MiSTer
 block protocol. It contains no sector-to-GCR converter. A native WOZ on a real
 file goes through Main's generic SD path; its stored CRC goes stale after
-writes until upstream PR #1330's refresh can be used. Writes to a converted DSK, DO, PO or 2MG are decoded from the saved
+writes, as on the //e and IIgs. Writes to a converted DSK, DO, PO or 2MG are decoded from the saved
 track by Main once the track's last block arrives, and the whole track is
 stored back into the source file once any sector is found, missing sectors as
 zeros. A NIB source is stored a whole track at a
 time, only when all sixteen sectors are found, keeping its
 address-field volume bytes; block images are written in place. The drive
 refuses writes to a FLUX WOZ, a WOZ marked write-protected and unmapped tracks.
-See `docs/MAIN_STORAGE.md` for the mount assignments and companion Main build.
+See `docs/MAIN_STORAGE.md` for the mount assignments and Main's tests.
 `sim/disk` tests P6, cache transfers and physical timing; `support/main/tests`
 tests Main's formats, transport, write policy and file persistence.
 

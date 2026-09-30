@@ -2,8 +2,8 @@
 
 The Apple III disk path now executes the original 341-0028 P6 logic instead of
 supplying whole bytes and clearing them on CPU reads. It keeps Disk III's
-native drive selection and disk-change behavior. Image handling lives in the
-companion Main's shared Apple-family storage backend.
+native drive selection and disk-change behavior. Image handling lives in
+Main's shared Apple-family storage backend.
 
 ## Implementation
 
@@ -29,8 +29,8 @@ up to 16 KiB, splitting larger allocations; track writes remain single-block.
 The FPGA reads the WOZ track directory into its cache; Main performs full-file
 validation and owns the file format, conversion and persistence policy.
 
-See [Main integration](MAIN_STORAGE.md) for the paired binary, configuration,
-slot map and converter utility. Native WOZ bits are never normalized or decoded
+See [Main integration](MAIN_STORAGE.md) for the slot map, formats and
+converter utility. Native WOZ bits are never normalized or decoded
 back into sectors. Converted Apple III sector disks receive the standard SOS
 synchronized-track layout. At the time of this run they all received the
 address-field key as well; see the [2026-09-17 follow-up](#follow-up-2026-09-17).

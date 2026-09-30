@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Host tests for the companion Main's Apple III storage code. Builds the real
-# support/a3 and support/a2 sources from a Main checkout (MAIN_DIR, default
-# ../Main_MiSTer-AppleIII next to this repository) with file and SPI shims.
+# Host tests for Main's Apple III storage code. Builds the real support/a3
+# and support/a2 sources from a Main checkout (MAIN_DIR, default ../Main_MiSTer
+# next to this repository) with file and SPI shims.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
-main=${MAIN_DIR:-$here/../../../../Main_MiSTer-AppleIII}
+main=${MAIN_DIR:-$here/../../../../Main_MiSTer}
 out=${APPLE3_TEST_OUT:-/tmp/mister-apple3-tests}
 mkdir -p "$out"
 ${CXX:-c++} -std=c++14 -O1 -g -Wall -Wextra -fsanitize=address,undefined \
