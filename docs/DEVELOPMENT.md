@@ -128,8 +128,13 @@ The top-level reset follows Template_MiSTer's
 [continuous video sync change](https://github.com/MiSTer-devel/Template_MiSTer/commit/df59d675a1e11a2390fb0f6ba577909977380b7b):
 the Apple /// scan counters already run through reset, and `Apple-III.sv`
 releases its reset at the start of a frame using the core's `hvcnt_atzero` output.
-`Apple-III.sv` follows the template's unindented module body and instance layout
-and is excluded from automatic formatting so upstream changes remain easy to copy.
+`Apple-III.sv` preserves the template's shared text, comments, CRLF line endings,
+and whitespace. It is excluded from automatic formatting; `.editorconfig` and
+`.gitattributes` preserve that layout so upstream changes remain easy to copy.
+
+Preserve the template's ordering for unused port defaults, delete assignments
+for actively used ports, and implement those ports in their corresponding
+functional sections.
 
 ## Formatting
 

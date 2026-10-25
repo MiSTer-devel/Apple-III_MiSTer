@@ -82,10 +82,11 @@ lint_off -rule WIDTHTRUNC -file "Apple-III.sv" -match "*Logical operator COND ex
 
 // MiSTer provides wider controls than this core consumes. OSD video effects
 // only select scanline levels 0..3, so the third result bit is unused.
-lint_off -rule UNUSEDSIGNAL -file "Apple-III.sv" -match "*Bits of signal are not used: 'hps_buttons'[0]*"
+lint_off -rule UNUSEDSIGNAL -file "Apple-III.sv" -match "*Bits of signal are not used: 'buttons'[0]*"
 lint_off -rule UNUSEDSIGNAL -file "Apple-III.sv" -match "*Bits of signal are not used: 'joystick_0'[31:6]*"
 lint_off -rule UNUSEDSIGNAL -file "Apple-III.sv" -match "*Bits of signal are not used: 'joystick_1'[31:6]*"
 lint_off -rule UNUSEDSIGNAL -file "Apple-III.sv" -match "*Bits of signal are not used: 'scanline_level'[2]*"
+lint_off -rule UNUSEDSIGNAL -file "Apple-III.sv" -match "*Bits of signal are not used: 'slot_addr'[15:8]*"
 // Only whether an SDRAM module is fitted matters, not its size or Main's
 // phase-debug field.
 lint_off -rule UNUSEDSIGNAL -file "Apple-III.sv" -match "*Bits of signal are not used: 'sdram_sz'[14:2]*"
