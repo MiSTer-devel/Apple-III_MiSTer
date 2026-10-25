@@ -136,6 +136,13 @@ Preserve the template's ordering for unused port defaults, delete assignments
 for actively used ports, and implement those ports in their corresponding
 functional sections.
 
+`rtl/apple3_system.sv` connects the Apple III machine, expansion cards, floppy
+drives, joystick adaptation, and SDRAM interface. Their internal buses stay in
+that module. `Apple-III.sv` owns the MiSTer menu, HPS interface, clocks, reset
+release, and video/output handling, and passes explicit settings to the system.
+The hardware modules and their standalone test interfaces remain independent
+of this integration layer.
+
 ## Formatting
 
 With `verible-verilog-format`, Python 3.9+ and Git on

@@ -197,89 +197,80 @@ always @(posedge clk_sys) begin
 	else if(hvcnt_atzero) reset_core <= 0;
 end
 
-apple3_core machine
+apple3_system system
 (
-	.clk_14m(clk_sys),
-	.reset(reset_core),
-	.ps2_key(ps2_key),
-	
-	.plus_keymap(plus_model),
-	.ram_128k(memory_board == 2'd1),
-	.ram_512k(ram_512k),
+	.clk_sys(clk_sys),
+	.reset_core(reset_core),
+	.sdram_init(!pll_locked),
+	.sdram_ready(sdram_ready),
+	.plus_model(plus_model),
+	.memory_board(status[31:30]),
+	.sdram_present(sdram_present),
 	.soshdboot(status[26]),
 	.interlace(interlace),
 	.euro(euro),
-	.ext_ram_cycle(ext_ram_cycle),
-	.ext_ram_select(ext_ram_select),
-	.ext_ram_addr(ext_ram_addr),
-	.ext_ram_write(ext_ram_write),
-	.ext_ram_lane(ext_ram_lane),
-	.ext_ram_din(ext_ram_din),
-	.ext_ram_q(ext_ram_q),
+	.ps2_key(ps2_key),
+	.ps2_mouse(ps2_mouse),
+	.mouse_speed(status[25:24]),
+	.joystick_0(joystick_0[5:0]),
+	.joystick_1(joystick_1[5:0]),
+	.joystick_analog_0(joystick_analog_0),
+	.joystick_analog_1(joystick_analog_1),
+	.port_b(status[10]),
+	.host_rtc(host_rtc),
 	.serial_rx(UART_RXD),
-	
 	.serial_cts_n(status[9] && UART_CTS),
 	.serial_dsr_n(status[29] && UART_DSR),
-	
 	.serial_dcd_n((status[28:27] == 2'd1) ? UART_DSR : (status[28:27] == 2'd2)),
 	.serial_tx(UART_TXD),
 	.serial_rts_n(UART_RTS),
 	.serial_dtr_n(UART_DTR),
-	.host_rtc(host_rtc),
-	.joy_a_x(stick_x[!port_b]),
-	.joy_a_y(stick_y[!port_b]),
-	.joy_b_x(stick_x[port_b]),
-	.joy_b_y(stick_y[port_b]),
-	.joy_a_button(stick_button[!port_b]),
-	.joy_a_switch(stick_switch[!port_b]),
-	.joy_b_button(stick_button[port_b]),
-	.joy_b_switch(stick_switch[port_b]),
-	.slot_data_in(slot_data_in),
-	.slot_data_oe(slot_data_oe),
-	.slot_irq_n(slot_irq_n),
-	.slot_nmi_n(4'b1111),
-	.slot_ready(slot_ready),
-	.slot_addr(slot_addr),
-	.slot_data_out(slot_data_out),
-	.slot_cpu_read(slot_cpu_read),
-	.slot_cycle(slot_cycle),
-	.slot_reset(slot_reset),
-	.slot_device_select(slot_device_select),
-	.slot_io_select(slot_io_select),
-	.slot_io_strobe(),
-	.slot_rom_deselect(slot_rom_deselect),
-	.slot_bus_conflict(),
-	.slot_dma_ok(slot_dma_ok),
-	.slot_dma_req(slot_dma_req),
-	.slot_dma_write(slot_dma_write),
-	.slot_dma_data(slot_dma_data),
-	.rom_we(rom_write),
-	.rom_host_addr(ioctl_addr[12:0]),
-	.rom_host_data(ioctl_dout),
-	.disk_ready(disk_ready),
-	.disk_write_protect(disk_write_protect),
-	.disk_flux,
-	.disk_media_change(img_mounted[3:0]),
-	.disk_motors,
-	.disk_phases,
-	.disk_write_mode,
-	.disk_write_bit,
-	.disk_write_strobe,
-	.video_r(core_r),
-	.video_g(core_g),
-	.video_b(core_b),
+	.rom_write(rom_write),
+	.rom_addr(ioctl_addr[12:0]),
+	.rom_data(ioctl_dout),
+	.slot_config(status[43:32]),
+	.disk_protect({status[12:11], status[7:6]}),
+	.mouse_chosen(mouse_chosen),
+	.block_chosen(block_chosen),
+	.profile_1_chosen(profile_1_chosen),
+	.profile_2_chosen(profile_2_chosen),
+	.img_mounted(img_mounted),
+	.img_readonly(img_readonly),
+	.img_size(img_size),
+	.sd_lba(sd_lba),
+	.sd_blk_cnt(sd_blk_cnt),
+	.sd_rd(sd_rd),
+	.sd_wr(sd_wr),
+	.sd_ack(sd_ack),
+	.sd_buff_addr(sd_buff_addr),
+	.sd_buff_dout(sd_buff_dout),
+	.sd_buff_din(sd_buff_din),
+	.sd_buff_wr(sd_buff_wr),
+	.activity(system_activity),
+	.sdram_clk(SDRAM_CLK),
+	.sdram_a(SDRAM_A),
+	.sdram_ba(SDRAM_BA),
+	.sdram_dq(SDRAM_DQ),
+	.sdram_cke(SDRAM_CKE),
+	.sdram_dqml(SDRAM_DQML),
+	.sdram_dqmh(SDRAM_DQMH),
+	.sdram_cs_n(SDRAM_nCS),
+	.sdram_cas_n(SDRAM_nCAS),
+	.sdram_ras_n(SDRAM_nRAS),
+	.sdram_we_n(SDRAM_nWE),
+	.core_r(core_r),
+	.core_g(core_g),
+	.core_b(core_b),
 	.video_hblank(HBlank),
-	.video_vblank(VBlank),
 	.video_hsync(HSync),
+	.video_vblank(VBlank),
 	.video_vsync(VSync),
 	.hvcnt_atzero(hvcnt_atzero),
-	.video_field(core_field),
-	.video_colour(core_colour),
-	.video_colour_phase(core_colour_phase),
-	.video_colour_burst(core_colour_burst),
-	.audio(core_audio),
-	.disk_activity(disk_activity),
-	.disk_active
+	.core_field(core_field),
+	.core_colour(core_colour),
+	.core_colour_phase(core_colour_phase),
+	.core_colour_burst(core_colour_burst),
+	.core_audio(core_audio)
 );
 
 assign AUDIO_S = 1;
@@ -361,7 +352,7 @@ video_mixer #(.LINE_LENGTH(560), .GAMMA(1)) video_out
 	.VGA_DE(mixer_de)
 );
 
-assign LED_USER = disk_activity || card_activity;
+assign LED_USER = system_activity;
 
 wire [21:0] gamma_bus;
 wire [31:0] joystick_0;
@@ -417,98 +408,6 @@ wire core_hblank_q, core_vblank_q, core_hsync_q, core_vsync_q;
 
 wire mixer_de;
 
-function automatic [7:0] controller_axis(input logic [7:0] analog_value, input logic negative,
-	input logic positive);
-	if(negative) controller_axis = 8'h00;
-	else if(positive) controller_axis = 8'hff;
-	else controller_axis = analog_value ^ 8'h80;
-endfunction
-
-wire [7:0] stick_x[2], stick_y[2];
-assign stick_x[0] = controller_axis(joystick_analog_0[7:0], joystick_0[1], joystick_0[0]);
-assign stick_y[0] = ~controller_axis(joystick_analog_0[15:8], joystick_0[3], joystick_0[2]);
-assign stick_x[1] = controller_axis(joystick_analog_1[7:0], joystick_1[1], joystick_1[0]);
-assign stick_y[1] = ~controller_axis(joystick_analog_1[15:8], joystick_1[3], joystick_1[2]);
-wire [1:0] stick_button = {joystick_1[4], joystick_0[4]};
-wire [1:0] switch_button = {joystick_1[5], joystick_0[5]};
-logic [1:0] switch_button_q = 2'b00;
-logic [1:0] stick_switch = 2'b00;
-always_ff @(posedge clk_sys) begin
-	switch_button_q <= switch_button;
-	stick_switch    <= stick_switch ^ (switch_button & ~switch_button_q);
-end
-wire port_b = status[10];
-
-`ifdef MISTER_DUAL_SDRAM
-assign {SDRAM2_CLK, SDRAM2_A, SDRAM2_BA, SDRAM2_DQ, SDRAM2_nCS, SDRAM2_nCAS, SDRAM2_nRAS, SDRAM2_nWE} = 'Z;
-`endif
-
-wire sdram_present = sdram_sz[15] && (sdram_sz[1:0] != 2'd0);
-wire [1:0] memory_board = status[31:30];
-wire ram_512k = (memory_board == 2'd2) && sdram_present;
-
-wire ext_ram_cycle, ext_ram_select, ext_ram_write, ext_ram_lane, sdram_ready;
-wire [16:0] ext_ram_addr;
-wire [7:0] ext_ram_din;
-wire [15:0] ext_ram_q;
-wire [15:0] sdram_dq_out;
-wire sdram_dq_oe;
-apple3_sdram sdram
-(
-	.clk(clk_sys),
-	.init(!pll_locked),
-	.ready(sdram_ready),
-	.cycle(ext_ram_cycle),
-	.select(ext_ram_select),
-	.addr({7'd0, ext_ram_addr}),
-	.we(ext_ram_write),
-	.lane(ext_ram_lane),
-	.din(ext_ram_din),
-	.q(ext_ram_q),
-	.sdram_cke(SDRAM_CKE),
-	.sdram_cs_n(SDRAM_nCS),
-	.sdram_ras_n(SDRAM_nRAS),
-	.sdram_cas_n(SDRAM_nCAS),
-	.sdram_we_n(SDRAM_nWE),
-	.sdram_ba(SDRAM_BA),
-	.sdram_a(SDRAM_A),
-	.sdram_dq_out(sdram_dq_out),
-	.sdram_dq_oe(sdram_dq_oe),
-	.sdram_dq_in(SDRAM_DQ)
-);
-
-assign {SDRAM_DQMH, SDRAM_DQML} = SDRAM_A[12:11];
-assign SDRAM_DQ                 = sdram_dq_oe ? sdram_dq_out : 16'hzzzz;
-
-altddio_out #(
-	.extend_oe_disable("OFF"),
-	.intended_device_family("Cyclone V"),
-	.invert_output("OFF"),
-	.lpm_hint("UNUSED"),
-	.lpm_type("altddio_out"),
-	.oe_reg("UNREGISTERED"),
-	.power_up_high("OFF"),
-	.width(1)
-) sdram_clock
-(
-	.datain_h(1'b0),
-	.datain_l(1'b1),
-	.outclock(clk_sys),
-	.dataout(SDRAM_CLK),
-	.aclr(1'b0),
-	.aset(1'b0),
-	.oe(1'b1),
-	.outclocken(1'b1),
-	.sclr(1'b0),
-	.sset(1'b0)
-);
-
-wire [3:0] disk_ready, disk_write_protect, disk_flux, disk_motors, disk_active;
-wire [3:0] disk_protect = {status[12:11], status[7:6]};
-wire [3:0] disk_phases;
-wire disk_write_mode, disk_write_bit, disk_write_strobe;
-wire disk_activity;
-
 wire [7:0] core_r;
 wire [7:0] core_g;
 wire [7:0] core_b;
@@ -518,113 +417,12 @@ wire [1:0] core_colour_phase;
 wire core_colour_burst;
 wire signed [15:0] core_audio;
 
-genvar drive;
-generate
-	for(drive = 0; drive < 4; drive = drive + 1) begin : woz_drives
-		apple3_woz_drive woz
-		(
-			.clk(clk_sys),
-			.reset(reset_core),
-			.change(img_mounted[drive]),
-			.enabled(1'b1),
-			.image_size(img_size),
-			.image_readonly(img_readonly),
-			.protect(disk_protect[drive]),
-			.active(disk_active[drive]),
-			.motor_on(disk_motors[drive]),
-			.phases(disk_phases),
-			.write_mode(disk_write_mode),
-			.write_bit(disk_write_bit),
-			.write_strobe(disk_write_strobe),
-			.flux(disk_flux[drive]),
-			.ready(disk_ready[drive]),
-			.write_protect(disk_write_protect[drive]),
-			.sd_lba(sd_lba[drive]),
-			.sd_blk_cnt(sd_blk_cnt[drive]),
-			.sd_rd(sd_rd[drive]),
-			.sd_wr(sd_wr[drive]),
-			.sd_ack(sd_ack[drive]),
-			.sd_buff_addr,
-			.sd_buff_dout,
-			.sd_buff_din(sd_buff_din[drive]),
-			.sd_buff_wr
-		);
-	end
-endgenerate
+wire system_activity;
+wire sdram_ready;
+wire sdram_present = sdram_sz[15] && (sdram_sz[1:0] != 2'd0);
 
-function automatic [2:0] slot_card(input [2:0] value, input [2:0] shipped);
-	logic [3:0] sum;
-	sum       = value + shipped;
-	slot_card = (sum >= 4'd5) ? 3'(sum - 4'd5) : sum[2:0];
-endfunction
-wire [3:0][2:0] slot_cards = {
-	slot_card(status[43:41], 3'd2),
-	slot_card(status[40:38], 3'd0),
-	slot_card(status[37:35], 3'd0),
-	slot_card(status[34:32], 3'd1)
-};
-
-function automatic chosen(input [3:0][2:0] cards, input [2:0] card);
-	chosen = (cards[0] == card) || (cards[1] == card) || (cards[2] == card) || (cards[3] == card);
-endfunction
-assign block_chosen     = chosen(slot_cards, 3'd1);
-assign profile_1_chosen = chosen(slot_cards, 3'd2);
-assign profile_2_chosen = chosen(slot_cards, 3'd3);
-assign mouse_chosen     = chosen(slot_cards, 3'd4);
-
-wire [15:0] slot_addr;
-
-wire [3:0][7:0] slot_data_in;
-wire [3:0] slot_device_select, slot_io_select, slot_data_oe, slot_irq_n, slot_ready;
-wire [3:0] slot_dma_req, slot_dma_write;
-wire [7:0] slot_data_out;
-wire slot_cpu_read, slot_cycle, slot_reset, slot_rom_deselect, slot_dma_ok;
-wire [7:0] slot_dma_data;
-wire card_activity;
-wire [3:0][31:0] hd_lba;
-wire [3:0][7:0] hd_din;
-
-apple3_cards cards
-(
-	.clk(clk_sys),
-	.reset(slot_reset),
-	.cycle(slot_cycle),
-	.slot_card(slot_cards),
-	.addr(slot_addr[7:0]),
-	.cpu_read(slot_cpu_read),
-	.data_in(slot_data_out),
-	.device_select(slot_device_select),
-	.io_select(slot_io_select),
-	.rom_deselect(slot_rom_deselect),
-	.dma_ok(slot_dma_ok),
-	.dma_data(slot_dma_data),
-	.data_out(slot_data_in),
-	.data_oe(slot_data_oe),
-	.irq_n(slot_irq_n),
-	.ready(slot_ready),
-	.dma_req(slot_dma_req),
-	.dma_write(slot_dma_write),
-	.activity(card_activity),
-	.ps2_mouse(ps2_mouse),
-	.mouse_speed(status[25:24]),
-	.image_change(img_mounted[7:4]),
-	.image_size(img_size),
-	.image_readonly(img_readonly),
-	.sd_lba(hd_lba),
-	.sd_rd(sd_rd[7:4]),
-	.sd_wr(sd_wr[7:4]),
-	.sd_ack(sd_ack[7:4]),
-	.sd_buff_addr(sd_buff_addr[8:0]),
-	.sd_buff_dout,
-	.sd_buff_din(hd_din),
-	.sd_buff_wr
-);
-generate
-	for(drive = 4; drive < 8; drive = drive + 1) begin : hard_disks
-		assign sd_lba[drive]      = hd_lba[drive-4];
-		assign sd_blk_cnt[drive]  = 6'd0;
-		assign sd_buff_din[drive] = hd_din[drive-4];
-	end
-endgenerate
+`ifdef MISTER_DUAL_SDRAM
+assign {SDRAM2_CLK, SDRAM2_A, SDRAM2_BA, SDRAM2_DQ, SDRAM2_nCS, SDRAM2_nCAS, SDRAM2_nRAS, SDRAM2_nWE} = 'Z;
+`endif
 
 endmodule

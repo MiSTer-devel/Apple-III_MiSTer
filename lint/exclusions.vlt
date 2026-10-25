@@ -55,7 +55,7 @@ lint_off -rule PINMISSING -file "Apple-III.sv" -match "*Instance has missing pin
 lint_off -rule PINMISSING -file "Apple-III.sv" -match "*Instance has missing pin: 'uart_speed'"
 
 // Project debug outputs are consumed by testbenches, not the MiSTer wrapper.
-lint_off -rule PINMISSING -file "Apple-III.sv" -match "*Instance has missing pin: 'debug_*'"
+lint_off -rule PINMISSING -file "rtl/apple3_system.sv" -match "*Instance has missing pin: 'debug_*'"
 
 // FPGA configuration starts the free-running video chain and battery-backed
 // RTC once. These initial writes are not competing clocked drivers. Match the
@@ -86,7 +86,7 @@ lint_off -rule UNUSEDSIGNAL -file "Apple-III.sv" -match "*Bits of signal are not
 lint_off -rule UNUSEDSIGNAL -file "Apple-III.sv" -match "*Bits of signal are not used: 'joystick_0'[31:6]*"
 lint_off -rule UNUSEDSIGNAL -file "Apple-III.sv" -match "*Bits of signal are not used: 'joystick_1'[31:6]*"
 lint_off -rule UNUSEDSIGNAL -file "Apple-III.sv" -match "*Bits of signal are not used: 'scanline_level'[2]*"
-lint_off -rule UNUSEDSIGNAL -file "Apple-III.sv" -match "*Bits of signal are not used: 'slot_addr'[15:8]*"
+lint_off -rule UNUSEDSIGNAL -file "rtl/apple3_system.sv" -match "*Bits of signal are not used: 'slot_addr'[15:8]*"
 // Only whether an SDRAM module is fitted matters, not its size or Main's
 // phase-debug field.
 lint_off -rule UNUSEDSIGNAL -file "Apple-III.sv" -match "*Bits of signal are not used: 'sdram_sz'[14:2]*"
