@@ -121,7 +121,27 @@ Quartus and compile.
 ```
 
 The `sys/` directory is an unmodified copy of
-[Template_MiSTer](https://github.com/MiSTer-devel/Template_MiSTer).
+[Template_MiSTer at `5dda37366d02b04b8448da7b322235c1831af811`](https://github.com/MiSTer-devel/Template_MiSTer/commit/5dda37366d02b04b8448da7b322235c1831af811).
+Copy upstream files over `sys/` without local edits when updating it.
+
+The top-level reset follows Template_MiSTer's
+[continuous video sync change](https://github.com/MiSTer-devel/Template_MiSTer/commit/df59d675a1e11a2390fb0f6ba577909977380b7b):
+the Apple /// scan counters already run through reset, and `Apple-III.sv`
+releases its reset at the start of a frame using the core's `hvcnt_atzero` output.
+`Apple-III.sv` preserves the template's shared text, comments, CRLF line endings,
+and whitespace. It is excluded from automatic formatting; `.editorconfig` and
+`.gitattributes` preserve that layout so upstream changes remain easy to copy.
+
+Preserve the template's ordering for unused port defaults, delete assignments
+for actively used ports, and implement those ports in their corresponding
+functional sections.
+
+`rtl/apple3_system.sv` connects the Apple III machine, expansion cards, floppy
+drives, joystick adaptation, and SDRAM interface. Their internal buses stay in
+that module. `Apple-III.sv` owns the MiSTer menu, HPS interface, clocks, reset
+release, and video/output handling, and passes explicit settings to the system.
+The hardware modules and their standalone test interfaces remain independent
+of this integration layer.
 
 ## Formatting
 
@@ -139,10 +159,10 @@ make format FILES='rtl/apple3_acia.sv'
 are relative to the calling directory. `format-check` returns nonzero when
 formatting differs; both commands return nonzero on tool errors.
 
-The project scope is the `Apple-III.sv` wrapper and Verilog/SystemVerilog sources
-and headers under `rtl/` and `sim/`, including new, untracked files. Ignored files,
-generated PLL/simulation output and VHDL are excluded. The MiSTer `sys/` framework
-is always excluded.
+The project scope is Verilog/SystemVerilog sources and headers under `rtl/`
+and `sim/`, including new, untracked files. Ignored files, generated PLL/simulation
+output and VHDL are excluded. The MiSTer `sys/` framework and the manually
+formatted `Apple-III.sv` wrapper are always excluded.
 
 Formatting also excludes all vendored files in `rtl/acia/`, `rtl/disk/woz/` and
 `rtl/cards/mouse/` to preserve readable diffs against upstream. Explicit file selection uses the same scope,

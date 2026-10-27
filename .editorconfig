@@ -8,6 +8,11 @@ indent_style = tab
 indent_size = 4
 tab_width = 4
 
+# Keep the framework wrapper byte-compatible with upstream Template.sv.
+[Apple-III.sv]
+end_of_line = crlf
+trim_trailing_whitespace = false
+
 # Imported components and generated IP retain their upstream formatting.
 [{sys/**,rtl/acia/**,rtl/disk/woz/**,rtl/cards/mouse/**,rtl/pll.v,rtl/pll/**,sim/gen/**,sim/obj_dir/**,sim/work/**}]
 charset = unset

@@ -97,6 +97,8 @@ module apple3_core #(
 	output logic               video_vblank,
 	output logic               video_hsync,
 	output logic               video_vsync,
+	// One master clock at the start of a frame, even during reset.
+	output wire                hvcnt_atzero,
 	// High in the upper of two interlaced fields, and whenever the switch is off.
 	output logic               video_field,
 	// The colour lines RGB8..RGB1 behind that picture, their subcarrier slot
@@ -223,6 +225,7 @@ module apple3_core #(
 	assign bank_register = (e_pa_o & e_pa_ddr) | (e_pa_external & ~e_pa_ddr);
 	assign e_pa_i        = bank_register;
 
+	assign hvcnt_atzero   = (h_count == 10'd0) && (v_count == 9'd0);
 	assign machine_reset = reset || (environment[4] && reset_key && control_key);
 	// The memory board is changed with the power off: the option takes effect
 	// at the next reset.
